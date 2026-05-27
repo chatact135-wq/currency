@@ -1,39 +1,27 @@
-# MarketMind AI — Railway + Neon Ready
+# MarketMind AI V2 — Smart Zones
 
-FastAPI starter project for an AI-style market signal dashboard.
+Upgraded Railway + Neon ready version.
 
-## Upload to GitHub
-Upload the CONTENTS of this ZIP directly to the GitHub repository root. The repository root must show:
+## New features
+- Smart BUY zone and SELL zone
+- Do-not-buy / do-not-sell warnings
+- Support / resistance and daily high/low
+- Entry zone, stop-loss, take-profit 1 and 2
+- Expected move time
+- Optional real Twelve Data API support
+- Safe fallback data if API key is missing
+- Auto-refresh dashboard
 
-```text
-app/
-requirements.txt
-Procfile
-railway.json
-README.md
-.env.example
-```
+## Railway variables
+Required:
+DATABASE_URL=your Neon connection string
+SECRET_KEY=marketmind-secret-2026
 
-## Railway
-Build command:
-```bash
-pip install -r requirements.txt
-```
-Start command:
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
-```
+Optional:
+TWELVEDATA_API_KEY=your Twelve Data key
 
-## Variables
-Add these in Railway Variables:
-```env
-DATABASE_URL=your_neon_connection_string
-SECRET_KEY=any-random-secret
-```
-
-## Test after deploy
-- `/`
-- `/health`
-- `/dashboard`
-- `/api/signals/EURUSD`
-- `/api/signals`
+## Test URLs
+/dashboard
+/api/smart-signal/EURUSD
+/api/smart-signals
+/api/history
