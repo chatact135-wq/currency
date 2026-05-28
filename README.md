@@ -1,27 +1,28 @@
-# MarketMind AI V2 — Smart Zones
+# MarketMind AI V3 LIVE
 
-Upgraded Railway + Neon ready version.
+Live-data-only trading signal dashboard for Railway + Neon.
 
-## New features
-- Smart BUY zone and SELL zone
-- Do-not-buy / do-not-sell warnings
-- Support / resistance and daily high/low
-- Entry zone, stop-loss, take-profit 1 and 2
-- Expected move time
-- Optional real Twelve Data API support
-- Safe fallback data if API key is missing
-- Auto-refresh dashboard
-
-## Railway variables
-Required:
-DATABASE_URL=your Neon connection string
+## Required Railway variables
+DATABASE_URL=your Neon PostgreSQL URL
 SECRET_KEY=marketmind-secret-2026
+TWELVEDATA_API_KEY=your Twelve Data API key
 
-Optional:
-TWELVEDATA_API_KEY=your Twelve Data key
+## Optional news variables
+NEWS_API_KEY=your NewsAPI key
+FINNHUB_API_KEY=your Finnhub key
 
-## Test URLs
+## Features
+- No fake/demo prices
+- AJAX updates without full-page reload
+- Backend cache to protect free API limits
+- EUR/USD, GBP/USD, XAU/USD, WTI Oil
+- Smart buy/sell zones
+- Entry, SL, TP1, TP2
+- News sentiment support
+- UAE trading session filter
+
+## URLs
 /dashboard
-/api/smart-signal/EURUSD
-/api/smart-signals
-/api/history
+/api/live-signals
+/api/live-signal/EURUSD
+/api/health
