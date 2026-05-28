@@ -1,13 +1,15 @@
 import time
-_CACHE={}
-def get_cache(k,ttl):
-    i=_CACHE.get(k)
-    if not i: return None
-    t,v=i
-    if time.time()-t>ttl:
-        _CACHE.pop(k,None); return None
-    return v
-def set_cache(k,v): _CACHE[k]=(time.time(),v)
-def age(k):
-    i=_CACHE.get(k)
-    return None if not i else int(time.time()-i[0])
+_cache = {}
+def get(key, ttl):
+    item = _cache.get(key)
+    if not item: return None
+    ts, value = item
+    if time.time() - ts > ttl:
+        _cache.pop(key, None)
+        return None
+    return value
+def set(key, value):
+    _cache[key] = (time.time(), value)
+def age(key):
+    item = _cache.get(key)
+    return None if not item else int(time.time() - item[0])
