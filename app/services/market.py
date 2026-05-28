@@ -1,127 +1,132 @@
 import requests
-from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from app.config import settings
-from app.models import PriceTick
+from app.models import MarketCandle
 from app.services import cache
 
 ASSETS = {
-    "EURUSD": {"display":"EUR/USD", "finnhub_symbol":"OANDA:EUR_USD", "pip":0.0001},
-    "GBPUSD": {"display":"GBP/USD", "finnhub_symbol":"OANDA:GBP_USD", "pip":0.0001},
-    "XAUUSD": {"display":"Gold / XAUUSD", "finnhub_symbol":"OANDA:XAU_USD", "pip":0.10},
-    "WTI": {"display":"WTI Oil", "finnhub_symbol":"OANDA:WTICO_USD", "pip":0.01},
+    "EURUSD": {"display": "EUR/USD", "twelve": "EUR/USD", "pip": 0.0001},
+    "GBPUSD": {"display": "GBP/USD", "twelve": "GBP/USD", "pip": 0.0001},
+    "XAUUSD": {"display": "Gold / XAUUSD", "twelve": "XAU/USD", "pip": 0.10},
+    "WTI": {"display": "WTI Oil", "twelve": "WTI/USD", "pip": 0.01},
 }
 
-class LiveDataError(Exception): pass
-class CollectingTicks(Exception): pass
+class LiveDataError(Exception):
+    pass
 
 def normalize(asset):
     a = asset.upper().replace("/", "").replace("-", "").replace(" ", "")
-    if a in ["GOLD", "XAU"]: return "XAUUSD"
-    if a in ["OIL", "USOIL", "WTIUSD"]: return "WTI"
+    if a in ["GOLD", "XAU"]:
+        return "XAUUSD"
+    if a in ["OIL", "USOIL", "WTIUSD"]:
+        return "WTI"
     return a if a in ASSETS else "EURUSD"
 
 def active_assets():
     return [a for a in settings.ACTIVE_ASSETS if a in ASSETS]
 
-def finnhub_quote(asset):
+def parse_candles(data):
+    values = data.get("values") or []
+    if len(values) < 50:
+        msg = data.get("message") or data.get("status") or "Not enough candle values."
+        raise LiveDataError(str(msg))
+    out = []
+    for row in reversed(values):
+        out.append({
+            "datetime": str(row.get("datetime", "")),
+            "open": float(row["open"]),
+            "high": float(row["high"]),
+            "low": float(row["low"]),
+            "close": float(row["close"]),
+        })
+    return out
+
+def fetch_twelve_candles(asset, interval="5min", outputsize=120):
     symbol = normalize(asset)
-    key = f"fh_quote:{symbol}"
-    cached = cache.get(key, settings.TICK_CACHE_SECONDS)
+    key = f"td:{symbol}:{interval}:{outputsize}"
+    cached = cache.get(key, settings.MARKET_CACHE_SECONDS)
     if cached:
-        return {**cached, "source":"finnhub-quote-cached", "cache_age":cache.age(key)}
-    if not settings.FINNHUB_API_KEY:
-        raise LiveDataError("FINNHUB_API_KEY missing.")
-    fsym = ASSETS[symbol]["finnhub_symbol"]
+        return {**cached, "source": "twelvedata-cached", "cache_age": cache.age(key)}
+
+    if not settings.TWELVEDATA_API_KEY:
+        raise LiveDataError("TWELVEDATA_API_KEY missing. Add it in Railway Variables.")
+
     try:
-        r = requests.get("https://finnhub.io/api/v1/quote", params={"symbol":fsym, "token":settings.FINNHUB_API_KEY}, timeout=12)
+        r = requests.get("https://api.twelvedata.com/time_series", params={
+            "symbol": ASSETS[symbol]["twelve"],
+            "interval": interval,
+            "outputsize": outputsize,
+            "apikey": settings.TWELVEDATA_API_KEY,
+            "format": "JSON"
+        }, timeout=15)
         data = r.json()
     except Exception as exc:
-        raise LiveDataError(f"Finnhub quote connection failed: {exc}")
-    if isinstance(data, dict) and data.get("error"):
-        raise LiveDataError(str(data.get("error")))
-    price = data.get("c") or data.get("pc")
-    if not price:
-        raise LiveDataError(f"Finnhub quote returned no price for {symbol}: {data}")
-    result = {"asset":symbol, "display":ASSETS[symbol]["display"], "price":float(price), "provider_symbol":fsym, "source":"finnhub-quote-live", "cache_age":0}
+        raise LiveDataError(f"Twelve Data connection failed: {exc}")
+
+    if data.get("status") == "error":
+        raise LiveDataError(data.get("message", "Twelve Data API error"))
+
+    candles = parse_candles(data)
+    result = {
+        "asset": symbol,
+        "display": ASSETS[symbol]["display"],
+        "candles": candles,
+        "price": candles[-1]["close"],
+        "source": "twelvedata-live",
+        "cache_age": 0,
+        "source_time": candles[-1]["datetime"],
+    }
     cache.set(key, result)
     return result
 
-def store_tick(db: Session, asset: str):
-    q = finnhub_quote(asset)
-    row = PriceTick(asset=q["asset"], price=q["price"], provider="finnhub", provider_symbol=q["provider_symbol"])
-    db.add(row)
+def store_candles(db: Session, asset: str, candles, timeframe="5min"):
+    symbol = normalize(asset)
+    inserted = 0
+    for c in candles:
+        exists = (db.query(MarketCandle)
+                    .filter(MarketCandle.asset == symbol)
+                    .filter(MarketCandle.timeframe == timeframe)
+                    .filter(MarketCandle.candle_time == str(c["datetime"]))
+                    .first())
+        if exists:
+            exists.open = c["open"]
+            exists.high = c["high"]
+            exists.low = c["low"]
+            exists.close = c["close"]
+        else:
+            db.add(MarketCandle(asset=symbol, timeframe=timeframe, candle_time=str(c["datetime"]), open=c["open"], high=c["high"], low=c["low"], close=c["close"]))
+            inserted += 1
     db.commit()
-    return q
+    return inserted
 
-def collect_all_ticks(db: Session):
-    out = []
-    for a in active_assets():
-        try:
-            out.append(store_tick(db, a))
-        except Exception as exc:
-            out.append({"asset":a, "error":str(exc)})
-    return out
-
-def get_recent_ticks(db: Session, asset: str, minutes: int = 240):
+def get_stored_candles(db: Session, asset: str, limit=500, timeframe="5min"):
     symbol = normalize(asset)
-    since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
-    rows = (db.query(PriceTick)
-              .filter(PriceTick.asset == symbol)
-              .filter(PriceTick.created_at >= since)
-              .order_by(PriceTick.created_at.asc())
+    rows = (db.query(MarketCandle)
+              .filter(MarketCandle.asset == symbol)
+              .filter(MarketCandle.timeframe == timeframe)
+              .order_by(MarketCandle.id.desc())
+              .limit(limit)
               .all())
-    return rows
+    rows = list(reversed(rows))
+    return [{"datetime": r.candle_time, "open": r.open, "high": r.high, "low": r.low, "close": r.close} for r in rows]
 
-def build_candles_from_ticks(db: Session, asset: str, interval_seconds: int = 300, needed: int = 60):
-    symbol = normalize(asset)
-    rows = get_recent_ticks(db, symbol, minutes=480)
-    if len(rows) < 20:
-        raise CollectingTicks(f"Collecting live ticks for {symbol}. Need more stored prices before strategy can run. Current ticks: {len(rows)}")
-    buckets = {}
-    for r in rows:
-        ts = int(r.created_at.replace(tzinfo=timezone.utc).timestamp())
-        bucket = ts - (ts % interval_seconds)
-        buckets.setdefault(bucket, []).append(float(r.price))
-    candles = []
-    for bucket in sorted(buckets.keys()):
-        prices = buckets[bucket]
-        candles.append({
-            "datetime": bucket,
-            "open": prices[0],
-            "high": max(prices),
-            "low": min(prices),
-            "close": prices[-1],
-        })
-    # If fewer 5-min candles, build compact time-buckets from stored live ticks using rolling chunks.
-    # This uses only stored live prices.
-    if len(candles) < 30 and len(rows) >= 20:
-        prices = [float(r.price) for r in rows]
-        chunk = max(2, len(prices)//40)
-        candles = []
-        for i in range(0, len(prices), chunk):
-            part = prices[i:i+chunk]
-            if len(part) < 2: continue
-            candles.append({"datetime": i, "open":part[0], "high":max(part), "low":min(part), "close":part[-1]})
-    if len(candles) < 20:
-        raise CollectingTicks(f"Still collecting enough candle structure for {symbol}. Current candles: {len(candles)}")
-    return candles[-needed:]
-
-def market_snapshot(db: Session, asset: str):
-    symbol = normalize(asset)
-    q = store_tick(db, symbol)
-    candles = build_candles_from_ticks(db, symbol)
-    if candles:
-        candles[-1]["close"] = q["price"]
-        candles[-1]["high"] = max(candles[-1]["high"], q["price"])
-        candles[-1]["low"] = min(candles[-1]["low"], q["price"])
+def snapshot(db: Session, asset: str):
+    live = fetch_twelve_candles(asset, outputsize=120)
+    store_candles(db, live["asset"], live["candles"])
+    stored = get_stored_candles(db, live["asset"], limit=settings.HISTORY_CANDLE_LIMIT)
+    candles = stored if len(stored) >= 50 else live["candles"]
     return {
-        "asset": symbol,
-        "display": ASSETS[symbol]["display"],
-        "price": q["price"],
+        "asset": live["asset"],
+        "display": live["display"],
+        "price": candles[-1]["close"],
         "candles": candles,
-        "source": q["source"] + "+neon-tick-candles",
-        "cache_age": q["cache_age"],
+        "source": live["source"] + "+neon-history",
+        "cache_age": live["cache_age"],
         "source_time": candles[-1]["datetime"],
-        "tick_count": len(get_recent_ticks(db, symbol, minutes=480)),
+        "stored_candles": len(stored),
     }
+
+def download_history(db: Session, asset: str, outputsize=500):
+    live = fetch_twelve_candles(asset, outputsize=outputsize)
+    inserted = store_candles(db, live["asset"], live["candles"])
+    return {"asset": live["asset"], "downloaded": len(live["candles"]), "inserted_or_new": inserted, "source_time": live["source_time"]}

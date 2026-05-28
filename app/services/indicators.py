@@ -1,48 +1,63 @@
 import pandas as pd
 import numpy as np
 
-def s(c,key): return pd.Series([float(x[key]) for x in c], dtype="float64")
-def ema(c,span): return float(s(c,"close").ewm(span=span, adjust=False).mean().iloc[-1])
-def rsi(c,period=14):
-    close=s(c,"close"); d=close.diff()
-    gain=d.clip(lower=0).rolling(period).mean(); loss=(-d.clip(upper=0).rolling(period).mean())
-    rs=gain/loss.replace(0,0.000001); val=100-(100/(1+rs)); last=val.iloc[-1]
-    return float(50 if pd.isna(last) else round(last,2))
-def atr(c,period=14):
-    h,l,cl=s(c,"high"),s(c,"low"),s(c,"close"); pc=cl.shift(1)
-    tr=pd.concat([h-l,(h-pc).abs(),(l-pc).abs()],axis=1).max(axis=1)
-    val=tr.rolling(period).mean().iloc[-1]
-    if pd.isna(val): val=tr.mean()
+def s(c, key):
+    return pd.Series([float(x[key]) for x in c], dtype="float64")
+def ema(c, span):
+    return float(s(c, "close").ewm(span=span, adjust=False).mean().iloc[-1])
+def rsi(c, period=14):
+    close = s(c, "close")
+    d = close.diff()
+    gain = d.clip(lower=0).rolling(period).mean()
+    loss = (-d.clip(upper=0)).rolling(period).mean()
+    rs = gain / loss.replace(0, 0.000001)
+    val = 100 - (100/(1+rs))
+    last = val.iloc[-1]
+    return float(50 if pd.isna(last) else round(last, 2))
+def atr(c, period=14):
+    h,l,cl = s(c,"high"),s(c,"low"),s(c,"close")
+    pc = cl.shift(1)
+    tr = pd.concat([h-l, (h-pc).abs(), (l-pc).abs()], axis=1).max(axis=1)
+    val = tr.rolling(period).mean().iloc[-1]
+    if pd.isna(val): val = tr.mean()
     return float(max(val, 0.0000001))
-def momentum(c,lookback=6):
-    if len(c)<=lookback: return 0.0
-    return (c[-1]["close"]-c[-lookback]["close"])/c[-lookback]["close"]
-def pressure(c,n=5):
-    recent=c[-n:]; bull=sum(max(0,x["close"]-x["open"]) for x in recent); bear=sum(max(0,x["open"]-x["close"]) for x in recent)
-    total=bull+bear
-    return 0.0 if total==0 else (bull-bear)/total
+def momentum(c, lookback=6):
+    if len(c) <= lookback: return 0.0
+    return (c[-1]["close"] - c[-lookback]["close"]) / c[-lookback]["close"]
+def pressure(c, n=5):
+    recent = c[-n:]
+    bull = sum(max(0, x["close"]-x["open"]) for x in recent)
+    bear = sum(max(0, x["open"]-x["close"]) for x in recent)
+    total = bull + bear
+    return 0.0 if total == 0 else (bull-bear)/total
 def wick(c):
     last=c[-1]; rng=max(0.0000001,last["high"]-last["low"])
-    upper=last["high"]-max(last["open"],last["close"]); lower=min(last["open"],last["close"])-last["low"]
-    if upper/rng>0.42 and last["close"]<last["open"]: return {"direction":"SELL","strength":round(upper/rng,3)}
-    if lower/rng>0.42 and last["close"]>last["open"]: return {"direction":"BUY","strength":round(lower/rng,3)}
+    upper=last["high"]-max(last["open"],last["close"])
+    lower=min(last["open"],last["close"])-last["low"]
+    if upper/rng > 0.42 and last["close"] < last["open"]:
+        return {"direction":"SELL","strength":round(upper/rng,3)}
+    if lower/rng > 0.42 and last["close"] > last["open"]:
+        return {"direction":"BUY","strength":round(lower/rng,3)}
     return {"direction":"NEUTRAL","strength":round(max(upper,lower)/rng,3)}
 def displacement(c):
-    last=c[-1]; rng=max(0.0000001,last["high"]-last["low"]); body=abs(last["close"]-last["open"]); strength=body/rng
-    if strength<0.58: return {"direction":"NEUTRAL","strength":round(strength,3)}
+    last=c[-1]; rng=max(0.0000001,last["high"]-last["low"])
+    body=abs(last["close"]-last["open"]); strength=body/rng
+    if strength < 0.58:
+        return {"direction":"NEUTRAL","strength":round(strength,3)}
     return {"direction":"BUY" if last["close"]>last["open"] else "SELL","strength":round(strength,3)}
-def profile(c,bins=14):
-    closes=np.array([x["close"] for x in c[-80:]], dtype=float)
-    hist,edges=np.histogram(closes,bins=bins); poc_i=int(hist.argmax()); poc=(edges[poc_i]+edges[poc_i+1])/2
+def profile(c,bins=18):
+    closes=np.array([x["close"] for x in c[-120:]], dtype=float)
+    hist,edges=np.histogram(closes,bins=bins)
+    poc_i=int(hist.argmax()); poc=(edges[poc_i]+edges[poc_i+1])/2
     selected=[]; acc=0; total=hist.sum()
-    for i in sorted(range(len(hist)), key=lambda j:hist[j], reverse=True):
-        selected.append(i); acc+=hist[i]
-        if total and acc/total>=0.70: break
+    for i in sorted(range(len(hist)), key=lambda j: hist[j], reverse=True):
+        selected.append(i); acc += hist[i]
+        if total and acc/total >= 0.70: break
     return {"poc":float(poc),"val":float(min(edges[i] for i in selected)),"vah":float(max(edges[i+1] for i in selected))}
 def build(c):
     price=c[-1]["close"]; e9,e20,e50=ema(c,9),ema(c,20),ema(c,50)
     trend="bullish" if e9>e20>e50 else "bearish" if e9<e20<e50 else "mixed"
-    recent=c[-80:] if len(c)>=80 else c
+    recent=c[-120:] if len(c)>=120 else c
     highs=[x["high"] for x in recent]; lows=[x["low"] for x in recent]; closes=[x["close"] for x in recent]
     return {"price":price,"ema9":e9,"ema20":e20,"ema50":e50,"trend":trend,"rsi":rsi(c),"atr":atr(c),
             "momentum":momentum(c),"pressure":pressure(c),"rejection":wick(c),"displacement":displacement(c),

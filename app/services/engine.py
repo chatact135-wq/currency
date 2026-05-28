@@ -1,16 +1,18 @@
+import json
 from app.config import settings
-from app.services.market import ASSETS, normalize, market_snapshot, LiveDataError, CollectingTicks
+from app.services.market import ASSETS, normalize, snapshot, LiveDataError
 from app.services.indicators import build
 from app.services.session import info as session_info
+from app.services.ml_engine import simple_ml_probability
 
+def al(layer, model, direction, score, message, interpretation=""):
+    return {"layer":layer,"model":model,"direction":direction,"score":round(score,1),"message":message,"interpretation":interpretation}
 def rp(symbol,v):
     pip=ASSETS[symbol]["pip"]
     if pip>=0.1: return round(float(v),2)
     if pip>=0.01: return round(float(v),3)
     return round(float(v),5)
 def pips(symbol,a,b): return round(abs(a-b)/ASSETS[symbol]["pip"],1)
-def al(layer, model, direction, score, msg, interp=""):
-    return {"layer":layer,"model":model,"direction":direction,"score":round(score,1),"message":msg,"interpretation":interp}
 
 def master(symbol,c,ind):
     alerts=[]; buy=0; sell=0; last=c[-1]
@@ -18,11 +20,11 @@ def master(symbol,c,ind):
         buy+=28; alerts.append(al("Master Bias","SB Liquidity","BUY",28,"Bullish sweep below previous low.","Primary direction"))
     elif last["high"]>ind["prev_high"] and last["close"]<ind["prev_high"]:
         sell+=28; alerts.append(al("Master Bias","SB Liquidity","SELL",-28,"Bearish sweep above previous high.","Primary direction"))
-    recent=c[-12:-1]; hi=max(x["high"] for x in recent); lo=min(x["low"] for x in recent)
+    recent=c[-15:-1]; hi=max(x["high"] for x in recent); lo=min(x["low"] for x in recent)
     if last["close"]>hi:
-        buy+=24; alerts.append(al("Master Bias","SMC Structure","BUY",24,"Bullish BOS/CHOCH.","Primary direction"))
+        buy+=26; alerts.append(al("Master Bias","SMC Structure","BUY",26,"Bullish BOS/CHOCH.","Primary direction"))
     elif last["close"]<lo:
-        sell+=24; alerts.append(al("Master Bias","SMC Structure","SELL",-24,"Bearish BOS/CHOCH.","Primary direction"))
+        sell+=26; alerts.append(al("Master Bias","SMC Structure","SELL",-26,"Bearish BOS/CHOCH.","Primary direction"))
     a,b,cc=c[-3],c[-2],c[-1]
     if cc["low"]>a["high"]:
         buy+=14; alerts.append(al("Master Bias","SMC FVG","BUY",14,"Bullish FVG.","Direction support"))
@@ -30,13 +32,13 @@ def master(symbol,c,ind):
         sell+=14; alerts.append(al("Master Bias","SMC FVG","SELL",-14,"Bearish FVG.","Direction support"))
     prof=ind["profile"]; price=ind["price"]
     if price>prof["vah"]:
-        buy+=14; alerts.append(al("Master Bias","Frequency Profile","BUY",14,"Price accepted above VAH.","Auction direction"))
+        buy+=16; alerts.append(al("Master Bias","Frequency Profile","BUY",16,"Price accepted above VAH.","Auction direction"))
     elif price<prof["val"]:
-        sell+=14; alerts.append(al("Master Bias","Frequency Profile","SELL",-14,"Price accepted below VAL.","Auction direction"))
+        sell+=16; alerts.append(al("Master Bias","Frequency Profile","SELL",-16,"Price accepted below VAL.","Auction direction"))
     if ind["trend"]=="bullish":
-        buy+=6; alerts.append(al("Master Bias","Trend","BUY",6,"EMA trend bullish.","Small confirmation"))
+        buy+=7; alerts.append(al("Master Bias","Trend","BUY",7,"EMA trend bullish.","Small confirmation"))
     elif ind["trend"]=="bearish":
-        sell+=6; alerts.append(al("Master Bias","Trend","SELL",-6,"EMA trend bearish.","Small confirmation"))
+        sell+=7; alerts.append(al("Master Bias","Trend","SELL",-7,"EMA trend bearish.","Small confirmation"))
     net=buy-sell; bias="BUY" if net>10 else "SELL" if net<-10 else "NEUTRAL"
     return {"bias":bias,"buy_score":round(buy,1),"sell_score":round(sell,1),"net":round(net,1),"alerts":alerts}
 
@@ -62,11 +64,11 @@ def execution(ind):
     return {"bias":bias,"buy_score":round(buy,1),"sell_score":round(sell,1),"net":round(net,1),"alerts":alerts}
 
 def decide(m,e,session):
-    conflict="Master bias and execution aligned." if m["bias"]==e["bias"] and m["bias"]!="NEUTRAL" else "Pullback/risk or incomplete alignment."
     aligned=m["bias"]!="NEUTRAL" and m["bias"]==e["bias"]
+    conflict="Master bias and execution aligned." if aligned else "Pullback/risk or incomplete alignment."
     strength=abs(m["net"])*0.75+abs(e["net"])*0.65+max(0,session["score"])
-    risk="LOW" if session["score"]>=0 and "aligned" in conflict else "MEDIUM"
-    if aligned and strength>=settings.ACTIVE_SCORE:
+    risk="LOW" if aligned and session["score"]>=0 else "MEDIUM" if session["score"]>=0 else "HIGH"
+    if aligned and strength>=settings.ACTIVE_SCORE and risk!="HIGH":
         action=f"ACTIVE SCALP {m['bias']}"; stage="EXECUTION ACTIVE"; active=True; bias=m["bias"]
     elif m["bias"]!="NEUTRAL" and abs(m["net"])>=settings.SETUP_SCORE:
         action=f"{m['bias']} SETUP READY"; stage="SETUP READY"; active=False; bias=m["bias"]
@@ -90,9 +92,12 @@ def plan(symbol,d,ind):
         else:
             setup="No valid setup zone"; trigger=price
         return {"has_exact_entry":False,"setup_zone":setup,"trigger_level":rp(symbol,trigger),"exact_entry":"No exact entry until ACTIVE SCALP confirms.","after_tp1":"No trade management until exact entry is active."}
-    if pip==0.0001: width=max(settings.MIN_ENTRY_PIPS*pip,min(settings.MAX_ENTRY_PIPS*pip,atr*0.12))
-    elif pip==0.10: width=max(0.8,min(3.5,atr*0.16))
-    else: width=max(0.04,min(0.18,atr*0.16))
+    if pip==0.0001:
+        width=max(settings.MIN_ENTRY_PIPS*pip,min(settings.MAX_ENTRY_PIPS*pip,atr*0.12))
+    elif pip==0.10:
+        width=max(0.8,min(3.5,atr*0.16))
+    else:
+        width=max(0.04,min(0.18,atr*0.16))
     if direction=="BUY":
         low=price-width*.25; high=price+width*.75; low,high=min(low,high),max(low,high)
         sl=low-max(width*1.4,atr*.28); tp1=high+max(width*1.1,atr*.32); tp2=high+max(width*2,atr*.58); full=high+max(width*2.8,atr*.78)
@@ -104,11 +109,14 @@ def plan(symbol,d,ind):
 def signal(db, asset):
     symbol=normalize(asset)
     try:
-        snap=market_snapshot(db,symbol)
-    except CollectingTicks as exc:
-        return {"status":"collecting","asset":symbol,"display":ASSETS[symbol]["display"],"message":str(exc)}
+        snap=snapshot(db,symbol)
     except LiveDataError as exc:
         return {"status":"error","asset":symbol,"display":ASSETS[symbol]["display"],"message":"LIVE DATA ERROR — no live price shown.","error":str(exc)}
     c=snap["candles"]; ind=build(c); ses=session_info(); m=master(symbol,c,ind); e=execution(ind); d=decide(m,e,ses); pl=plan(symbol,d,ind)
+    features={"rsi":ind["rsi"],"atr":ind["atr"],"momentum":ind["momentum"],"pressure":ind["pressure"],"setup_score":m["net"],"trigger_score":e["net"],"confirmation_score":ses["score"],"probability_up":d["probabilities"]["up"],"probability_down":d["probabilities"]["down"],"trend":ind["trend"],"master_bias":m["bias"],"execution_bias":e["bias"],"session":ses["name"]}
+    ml=simple_ml_probability(db,symbol,features)
+    if ml.get("probability") is not None:
+        # blend ML into visible confidence
+        d["confidence"]=round(0.75*d["confidence"]+0.25*ml["probability"],1)
     warning=f"{d['action']}: exact entry active." if d["active"] else f"{d['action']}: wait for exact trigger."
-    return {"status":"live","asset":symbol,"display":ASSETS[symbol]["display"],"price":rp(symbol,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"tick_count":snap["tick_count"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":m,"execution_engine":e,"confirmation_engine":{"modifier":ses["score"],"alerts":[al("Confirmation","Session","NEUTRAL",ses["score"],f"Session: {ses['name']}","Risk/confidence")]},"plan":pl,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(symbol,ind["atr"]),"rejection":ind["rejection"],"displacement":ind["displacement"]},"profile":{"poc":rp(symbol,ind["profile"]["poc"]),"val":rp(symbol,ind["profile"]["val"]),"vah":rp(symbol,ind["profile"]["vah"])},"alerts":m["alerts"]+e["alerts"],"features":{"trend":ind["trend"],"rsi":ind["rsi"],"atr":ind["atr"],"momentum":ind["momentum"],"pressure":ind["pressure"],"master_bias":m["bias"],"execution_bias":e["bias"],"session":ses["name"]},"logic_note":"V11 uses Finnhub live quotes + Neon tick memory + self-built candles. No blocked candle endpoint."}
+    return {"status":"live","asset":symbol,"display":ASSETS[symbol]["display"],"price":rp(symbol,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"ml":ml,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":m,"execution_engine":e,"confirmation_engine":{"modifier":ses["score"],"alerts":[al("Confirmation","Session","NEUTRAL",ses["score"],f"Session: {ses['name']}","Risk/confidence")]},"plan":pl,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(symbol,ind["atr"]),"rejection":ind["rejection"],"displacement":ind["displacement"]},"profile":{"poc":rp(symbol,ind["profile"]["poc"]),"val":rp(symbol,ind["profile"]["val"]),"vah":rp(symbol,ind["profile"]["vah"])},"alerts":m["alerts"]+e["alerts"],"features":features,"logic_note":"V12 uses Twelve Data candles + Neon history + ML-ready outcome learning."}

@@ -1,20 +1,34 @@
-# MarketMind AI V11 — Tick Memory Pro
+# MarketMind AI V12 — TwelveData + ML Pro
 
-This version fixes the Finnhub "You don't have access to this resource" error by NOT using Finnhub candle endpoints.
+This version returns to Twelve Data for market candles because Finnhub free access blocked forex/gold data.
 
-It uses:
-- Finnhub live quote/rate endpoint only
-- Neon PostgreSQL tick storage
-- self-built candles from stored ticks
-- fallback bootstrap candles from collected ticks only, not fake prices
-- Master Bias + Execution Trigger + Risk Grade
-- ML-ready signal memory
+## What V12 does
 
-Important:
-At first, the system needs a short time to collect ticks. It may show "collecting ticks" until enough ticks exist.
+- Uses Twelve Data live candles for EURUSD, GBPUSD, XAUUSD
+- Stores candles in Neon PostgreSQL
+- Stores every generated signal in Neon
+- Evaluates old signals after a configured time window
+- Builds ML-ready datasets
+- Provides ML probability when enough history exists
+- Uses fallback statistical probability before ML has enough samples
+- Keeps Master Bias, Execution Trigger, Confirmation/Risk, Grade, and exact-entry logic
+- BUY interval = ascending
+- SELL interval = descending
+- WAIT/SETUP does not show fake exact entry
 
-Routes:
-- /dashboard
-- /api/v11/signals
-- /api/v11/collect-ticks
-- /api/v11/health
+## Required Railway Variables
+
+DATABASE_URL
+SECRET_KEY
+TWELVEDATA_API_KEY
+
+Keep FINNHUB_API_KEY optional; not required for prices.
+
+## Important API endpoints
+
+/dashboard
+/api/v12/signals
+/api/v12/health
+/api/v12/admin/download-history
+/api/v12/admin/evaluate-signals
+/api/v12/ml/stats
