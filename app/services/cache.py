@@ -1,13 +1,22 @@
 import time
-_CACHE={}
-def get_cache(key, ttl_seconds):
-    item=_CACHE.get(key)
-    if not item: return None
-    created,value=item
-    if time.time()-created>ttl_seconds:
-        _CACHE.pop(key,None); return None
+from typing import Any
+_CACHE: dict[str, tuple[float, Any]] = {}
+
+def get_cache(key: str, ttl: int):
+    item = _CACHE.get(key)
+    if not item:
+        return None
+    ts, value = item
+    if time.time() - ts > ttl:
+        _CACHE.pop(key, None)
+        return None
     return value
-def set_cache(key,value): _CACHE[key]=(time.time(),value)
-def cache_age_seconds(key):
-    item=_CACHE.get(key)
-    return None if not item else int(time.time()-item[0])
+
+def set_cache(key: str, value: Any):
+    _CACHE[key] = (time.time(), value)
+
+def age(key: str):
+    item = _CACHE.get(key)
+    if not item:
+        return None
+    return int(time.time() - item[0])

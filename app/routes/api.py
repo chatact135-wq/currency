@@ -1,29 +1,52 @@
-from fastapi import APIRouter,Depends
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models import LiveSignalHistory
-from app.services.signal_engine import generate_live_signal
-from app.services.market_data import get_supported_assets
 from app.config import settings
-router=APIRouter(prefix='/api',tags=['api'])
-@router.get('/health')
-def health(): return {'status':'ok','version':'3.0.0','live_market_connected':bool(settings.TWELVEDATA_API_KEY),'news_connected':bool(settings.NEWS_API_KEY),'dashboard_refresh_seconds':settings.DASHBOARD_REFRESH_SECONDS,'market_cache_seconds':settings.MARKET_CACHE_SECONDS,'news_cache_seconds':settings.NEWS_CACHE_SECONDS}
-@router.get('/assets')
-def assets(): return get_supported_assets()
-@router.get('/live-signal/{asset}')
-def live_signal(asset:str, db:Session=Depends(get_db)):
-    result=generate_live_signal(asset)
-    if result.get('status')=='live':
-        row=LiveSignalHistory(asset=result['asset'],current_price=result['current_price'],action=result['action'],confidence=result['confidence'],risk_level=result['risk_level'],market_session=result['market_session']['name'],news_bias=result['news']['bias'],warning=result['warning'],reason=' | '.join(result['reasons']))
-        db.add(row); db.commit()
-    return result
-@router.get('/live-signals')
-def live_signals(): return {'signals':[generate_live_signal(asset) for asset in get_supported_assets().keys()]}
-@router.get('/smart-signal/{asset}')
-def smart_signal_alias(asset:str): return generate_live_signal(asset)
-@router.get('/smart-signals')
-def smart_signals_alias(): return {'signals':[generate_live_signal(asset) for asset in get_supported_assets().keys()]}
-@router.get('/history')
-def history(db:Session=Depends(get_db)):
-    rows=db.query(LiveSignalHistory).order_by(LiveSignalHistory.id.desc()).limit(50).all()
-    return [{'id':r.id,'asset':r.asset,'current_price':r.current_price,'action':r.action,'confidence':r.confidence,'risk_level':r.risk_level,'market_session':r.market_session,'news_bias':r.news_bias,'warning':r.warning,'created_at':r.created_at.isoformat() if r.created_at else None} for r in rows]
+from app.database import get_db
+from app.models import V4SignalHistory
+from app.services.v4_engine import signal
+from app.services.market_data import active_assets, SUPPORTED_ASSETS
+
+router = APIRouter(prefix="/api/v4", tags=["v4"])
+
+@router.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "version": "4.0.0",
+        "live_market_key": bool(settings.TWELVEDATA_API_KEY),
+        "news_key": bool(settings.NEWS_API_KEY),
+        "active_assets": active_assets(),
+        "dashboard_refresh_seconds": settings.DASHBOARD_REFRESH_SECONDS,
+        "market_cache_seconds": settings.MARKET_CACHE_SECONDS,
+    }
+
+@router.get("/assets")
+def assets():
+    return {"active": active_assets(), "supported": SUPPORTED_ASSETS}
+
+@router.get("/signal/{asset}")
+def one(asset: str, db: Session = Depends(get_db)):
+    r = signal(asset)
+    if r.get("status") == "live":
+        row = V4SignalHistory(
+            asset=r["asset"], price=r["price"], action=r["action"], trade_type=r["trade_type"],
+            confidence=r["confidence"], sb_score=r["sb_model"]["score"], news_bias=r["news"]["bias"],
+            session_name=r["session"]["name"], entry_low=r["plan"]["entry"]["low"], entry_high=r["plan"]["entry"]["high"],
+            stop_loss=r["plan"]["stop_loss"], take_profit_1=r["plan"]["take_profit_1"], take_profit_2=r["plan"]["take_profit_2"],
+            invalidation=r["plan"]["invalidation"], warning=r["warning"], reason=" | ".join(r["reasons"])
+        )
+        db.add(row)
+        db.commit()
+    return r
+
+@router.get("/signals")
+def all_signals():
+    return {"signals": [signal(a) for a in active_assets()]}
+
+@router.get("/history")
+def history(db: Session = Depends(get_db)):
+    rows = db.query(V4SignalHistory).order_by(V4SignalHistory.id.desc()).limit(50).all()
+    return [
+        {"asset": r.asset, "price": r.price, "action": r.action, "confidence": r.confidence, "created_at": r.created_at.isoformat()}
+        for r in rows
+    ]

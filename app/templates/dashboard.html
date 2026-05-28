@@ -1,12 +1,66 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>MarketMind AI V3 LIVE</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>
-:root{--bg:#06101f;--card:#101c2e;--card2:#152842;--border:#2c4770;--text:#eef5ff;--muted:#9fb2cc;--buy:#2ed47a;--sell:#ff5d5d;--wait:#f2c94c;--blue:#4da3ff;--err:#ff7676}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:radial-gradient(circle at top,#102b52,var(--bg));color:var(--text)}header{padding:22px 28px;border-bottom:1px solid var(--border);background:rgba(6,16,31,.92);position:sticky;top:0;z-index:10}h1{margin:0;font-size:28px}.sub,.statusbar{color:var(--muted);margin-top:8px;font-size:13px}.wrap{max-width:1450px;margin:auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px}.card{background:linear-gradient(160deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:18px;padding:20px;box-shadow:0 14px 30px rgba(0,0,0,.30)}.card.error{border-color:rgba(255,118,118,.65)}.topline{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.asset{font-size:23px;font-weight:bold}.source{font-size:12px;color:var(--muted);margin-top:4px}.price{font-size:22px;margin-top:10px}.pill{display:inline-block;padding:8px 12px;border-radius:999px;font-weight:bold;font-size:12px;text-align:center}.BUY{background:rgba(46,212,122,.18);color:var(--buy);border:1px solid rgba(46,212,122,.4)}.SELL{background:rgba(255,93,93,.18);color:var(--sell);border:1px solid rgba(255,93,93,.4)}.WAIT{background:rgba(242,201,76,.18);color:var(--wait);border:1px solid rgba(242,201,76,.4)}.ERROR{background:rgba(255,118,118,.18);color:var(--err);border:1px solid rgba(255,118,118,.4)}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px}.label{color:var(--muted);font-size:12px}.value{font-size:16px;font-weight:bold;margin-top:4px}.warning{margin-top:14px;padding:12px;border-radius:12px;background:rgba(255,197,66,.12);border:1px solid rgba(255,197,66,.35);color:#ffe0a3;font-weight:bold}.errorbox{margin-top:14px;padding:12px;border-radius:12px;background:rgba(255,118,118,.12);border:1px solid rgba(255,118,118,.45);color:#ffd2d2;font-weight:bold}.reasons{color:#d6e7ff;padding-left:18px;line-height:1.45}.zone-title{margin-top:18px;font-weight:bold;color:var(--blue)}.small{font-size:13px;color:var(--muted)}.news{font-size:13px;color:#cfe4ff;margin-top:8px}.footer{text-align:center;color:var(--muted);padding:28px}</style></head><body>
-<header><h1>MarketMind AI V3 — LIVE Market + News Signals</h1><div class="sub">AJAX auto-update every {{ refresh_seconds }}s • Backend market API cache {{ market_cache_seconds }}s • No fake prices shown</div><div class="statusbar" id="statusbar">Loading live signals...</div></header><div class="wrap"><div class="grid" id="signalsGrid"></div></div><div class="footer">Educational signal assistant only. No system guarantees market direction. Test on demo accounts first.</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MarketMind AI V4 PRO LIVE</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#050b16;--card:#101c2e;--card2:#162a45;--border:#345985;--text:#eef5ff;--muted:#9fb2cc;--buy:#2ed47a;--sell:#ff5d5d;--wait:#f2c94c;--blue:#4da3ff;--err:#ff7676}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:radial-gradient(circle at top,#102b52,var(--bg));color:var(--text)}
+header{padding:22px 28px;border-bottom:1px solid var(--border);background:rgba(5,11,22,.94);position:sticky;top:0;z-index:10}
+h1{margin:0;font-size:28px}.sub,.statusbar{color:var(--muted);margin-top:8px}.wrap{max-width:1500px;margin:auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px}
+.card{background:linear-gradient(160deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:18px;padding:20px;box-shadow:0 14px 30px rgba(0,0,0,.35)}.card.error{border-color:var(--err)}
+.topline{display:flex;justify-content:space-between;gap:10px}.asset{font-size:24px;font-weight:bold}.source{font-size:12px;color:var(--muted);margin-top:4px}.price{font-size:22px;margin-top:10px}.pill{padding:8px 12px;border-radius:999px;font-weight:bold;font-size:12px}
+.BUY{background:rgba(46,212,122,.18);color:var(--buy);border:1px solid rgba(46,212,122,.4)}.SELL{background:rgba(255,93,93,.18);color:var(--sell);border:1px solid rgba(255,93,93,.4)}.WAIT{background:rgba(242,201,76,.18);color:var(--wait);border:1px solid rgba(242,201,76,.4)}.ERROR{background:rgba(255,118,118,.18);color:var(--err);border:1px solid rgba(255,118,118,.4)}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px}.label{color:var(--muted);font-size:12px}.value{font-size:16px;font-weight:bold;margin-top:4px}.warning{margin-top:14px;padding:12px;border-radius:12px;background:rgba(255,197,66,.12);border:1px solid rgba(255,197,66,.35);color:#ffe0a3;font-weight:bold}.errorbox{margin-top:14px;padding:12px;border-radius:12px;background:rgba(255,118,118,.12);border:1px solid rgba(255,118,118,.45);color:#ffd2d2;font-weight:bold}.title{margin-top:18px;font-weight:bold;color:var(--blue)}ul{line-height:1.45;color:#d6e7ff}.small{font-size:13px;color:var(--muted)}.footer{text-align:center;color:var(--muted);padding:28px}
+</style>
+</head>
+<body>
+<header>
+<h1>MarketMind AI V4 — PRO LIVE + SB/SMC Models</h1>
+<div class="sub">AJAX {{ refresh_seconds }}s • API cache {{ cache_seconds }}s • Live-only • Dynamic scalp intervals • timers • news/session countdown</div>
+<div id="statusbar" class="statusbar">Loading...</div>
+</header>
+<div class="wrap"><div id="grid" class="grid"></div></div>
+<div class="footer">Educational assistant only. No guaranteed profits. Use demo testing first.</div>
 <script>
-const REFRESH_SECONDS={{ refresh_seconds }};const grid=document.getElementById('signalsGrid');const statusbar=document.getElementById('statusbar');
-function clsForAction(a){if(!a)return'WAIT';if(a.includes('BUY'))return'BUY';if(a.includes('SELL'))return'SELL';if(a.includes('ERROR'))return'ERROR';return'WAIT'}
-function zone(v){return v?`${v.low} → ${v.high}`:'-'}
-function renderErrorCard(s){return `<div class="card error"><div class="topline"><div><div class="asset">${s.display_name||s.asset}</div><div class="source">LIVE DATA STATUS: ERROR</div></div><span class="pill ERROR">ERROR</span></div><div class="errorbox">⚠️ ${s.message||'Live data error'}</div><div class="small">${s.error||''}</div></div>`}
-function renderCard(s){if(s.status!=='live')return renderErrorCard(s);const c=clsForAction(s.action);const headlines=(s.news&&s.news.headlines)?s.news.headlines.slice(0,2):[];return `<div class="card"><div class="topline"><div><div class="asset">${s.display_name}</div><div class="source">Data: ${s.source} • Candle: ${s.source_time||'-'} • Cache age: ${s.cache_age_seconds}s</div></div><span class="pill ${c}">${s.action}</span></div><div class="price">Current Price: <b>${s.current_price}</b></div><div class="small">Confidence: ${s.confidence}% • Risk: ${s.risk_level} • Trend: ${s.trend} • Session: ${s.market_session.name}</div><div class="warning">⚠️ ${s.warning}</div><div class="metrics"><div class="box"><div class="label">Smart Buy Zone</div><div class="value">${zone(s.buy_zone)}</div></div><div class="box"><div class="label">Smart Sell Zone</div><div class="value">${zone(s.sell_zone)}</div></div><div class="box"><div class="label">Do NOT Buy Above</div><div class="value">${s.do_not_buy_above}</div></div><div class="box"><div class="label">Do NOT Sell Below</div><div class="value">${s.do_not_sell_below}</div></div><div class="box"><div class="label">Entry Zone</div><div class="value">${zone(s.entry_zone)}</div></div><div class="box"><div class="label">Stop Loss</div><div class="value">${s.stop_loss}</div></div><div class="box"><div class="label">Take Profit 1</div><div class="value">${s.take_profit_1}</div></div><div class="box"><div class="label">Take Profit 2</div><div class="value">${s.take_profit_2}</div></div><div class="box"><div class="label">Range Low / High</div><div class="value">${s.range_low} / ${s.range_high}</div></div><div class="box"><div class="label">RSI / ATR</div><div class="value">${s.rsi} / ${s.atr}</div></div></div><div class="zone-title">Expected Move</div><div class="small">${s.expected_move_time}</div><div class="zone-title">News Status</div><div class="news">${s.news.source} • Bias: ${s.news.bias} • ${s.news.explanation}</div>${headlines.map(h=>`<div class="news">• ${h.title} <span class="small">(${h.source})</span></div>`).join('')}<div class="zone-title">Reasons</div><ul class="reasons">${s.reasons.map(r=>`<li>${r}</li>`).join('')}</ul></div>`}
-async function loadSignals(){statusbar.textContent='Updating live signals...';try{const res=await fetch('/api/live-signals',{cache:'no-store'});const data=await res.json();grid.innerHTML=(data.signals||[]).map(renderCard).join('');statusbar.textContent=`Last updated: ${new Date().toLocaleTimeString()} • Next update in ${REFRESH_SECONDS}s`;}catch(err){statusbar.textContent='Could not load signals: '+err}}
-loadSignals();setInterval(loadSignals,REFRESH_SECONDS*1000);
-</script></body></html>
+const REFRESH_SECONDS={{ refresh_seconds }};
+const grid=document.getElementById("grid");
+const statusbar=document.getElementById("statusbar");
+function fmt(sec){sec=Math.max(0,Math.floor(sec||0));const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;return `${h? h+':':''}${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
+let currentSignals=[];
+function cls(a){if(!a)return"WAIT";if(a.includes("BUY"))return"BUY";if(a.includes("SELL"))return"SELL";if(a.includes("ERROR"))return"ERROR";return"WAIT"}
+function zone(z){return z?`${z.low} → ${z.high}`:"-"}
+function card(s,i){
+if(s.status!=="live")return `<div class="card error"><div class="topline"><div><div class="asset">${s.display_name||s.asset}</div><div class="source">LIVE DATA STATUS: ERROR</div></div><span class="pill ERROR">ERROR</span></div><div class="errorbox">⚠️ ${s.message}</div><div class="small">${s.error||""}</div></div>`;
+let c=cls(s.action);
+return `<div class="card">
+<div class="topline"><div><div class="asset">${s.display_name}</div><div class="source">${s.source} • candle ${s.source_time||"-"} • cache ${s.cache_age}s</div></div><span class="pill ${c}">${s.action}</span></div>
+<div class="price">Price: <b>${s.price}</b></div><div class="small">Confidence ${s.confidence}% • ${s.trade_type} • ${s.risk_level}</div>
+<div class="warning">⚠️ ${s.warning}</div>
+<div class="metrics">
+<div class="box"><div class="label">Exact Entry Interval</div><div class="value">${zone(s.plan.entry)}</div></div>
+<div class="box"><div class="label">Scalp/Signal Timer</div><div class="value timer" data-i="${i}">${fmt(s.signal_timer_seconds)}</div></div>
+<div class="box"><div class="label">Stop Loss</div><div class="value">${s.plan.stop_loss}</div></div>
+<div class="box"><div class="label">Invalidation</div><div class="value">${s.plan.invalidation}</div></div>
+<div class="box"><div class="label">TP1</div><div class="value">${s.plan.take_profit_1}</div></div>
+<div class="box"><div class="label">TP2</div><div class="value">${s.plan.take_profit_2}</div></div>
+<div class="box"><div class="label">SB Score</div><div class="value">${s.sb_model.score}</div></div>
+<div class="box"><div class="label">News Bias</div><div class="value">${s.news.bias}</div></div>
+<div class="box"><div class="label">London Open</div><div class="value">${fmt(s.session.london_open_countdown)}</div></div>
+<div class="box"><div class="label">NY / News Window</div><div class="value">${fmt(s.news.next_event.countdown_seconds)}</div></div>
+</div>
+<div class="title">SB/SMC Model</div><ul><li>${s.sb_model.liquidity_sweep.reason}</li><li>${s.sb_model.fvg.reason}</li><li>${s.sb_model.structure.reason}</li></ul>
+<div class="title">Reasons</div><ul>${s.reasons.map(r=>`<li>${r}</li>`).join("")}</ul>
+</div>`;
+}
+async function load(){
+statusbar.textContent="Updating V4 live signals...";
+try{const r=await fetch("/api/v4/signals",{cache:"no-store"});const data=await r.json();currentSignals=data.signals||[];grid.innerHTML=currentSignals.map(card).join("");statusbar.textContent=`Last updated ${new Date().toLocaleTimeString()} • next update in ${REFRESH_SECONDS}s`;}
+catch(e){statusbar.textContent="Error loading signals: "+e}
+}
+setInterval(()=>{document.querySelectorAll(".timer").forEach(el=>{let i=Number(el.dataset.i);if(currentSignals[i]){currentSignals[i].signal_timer_seconds=Math.max(0,currentSignals[i].signal_timer_seconds-1);el.textContent=fmt(currentSignals[i].signal_timer_seconds)}})},1000);
+load();setInterval(load,REFRESH_SECONDS*1000);
+</script>
+</body>
+</html>

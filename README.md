@@ -1,28 +1,31 @@
-# MarketMind AI V3 LIVE
+# MarketMind AI V4 PRO LIVE
 
-Live-data-only trading signal dashboard for Railway + Neon.
+Advanced live-market trading assistant for Railway + Neon.
 
-## Required Railway variables
-DATABASE_URL=your Neon PostgreSQL URL
-SECRET_KEY=marketmind-secret-2026
-TWELVEDATA_API_KEY=your Twelve Data API key
+## Included
+- LIVE DATA ONLY: no fake/demo price fallback
+- AJAX card update without full page refresh
+- API-limit protection with server-side cache
+- SB/SMC analysis: liquidity sweep, Fair Value Gap, BOS/CHOCH, order-block style zones
+- Dynamic scalp/intraday entry intervals
+- Scalp countdown timer and signal expiry
+- News countdown / high-impact news window
+- London/New York/overlap timers
+- Exact Entry, Stop Loss, TP1, TP2, Invalidation
+- News sentiment from NewsAPI when key is provided
+- Clear LIVE DATA ERROR when API key/limit fails
 
-## Optional news variables
-NEWS_API_KEY=your NewsAPI key
-FINNHUB_API_KEY=your Finnhub key
+## Railway variables
+Required:
+DATABASE_URL, SECRET_KEY, TWELVEDATA_API_KEY
 
-## Features
-- No fake/demo prices
-- AJAX updates without full-page reload
-- Backend cache to protect free API limits
-- EUR/USD, GBP/USD, XAU/USD, WTI Oil
-- Smart buy/sell zones
-- Entry, SL, TP1, TP2
-- News sentiment support
-- UAE trading session filter
+Recommended:
+NEWS_API_KEY, DASHBOARD_REFRESH_SECONDS=15, MARKET_CACHE_SECONDS=180, NEWS_CACHE_SECONDS=600, ACTIVE_ASSETS=EURUSD,GBPUSD,XAUUSD
 
 ## URLs
 /dashboard
-/api/live-signals
-/api/live-signal/EURUSD
-/api/health
+/api/v4/signals
+/api/v4/signal/EURUSD
+/api/v4/health
+
+Educational assistant only. No system can guarantee profit.
