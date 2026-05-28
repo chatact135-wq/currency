@@ -1,130 +1,56 @@
 from app.config import settings
 from app.services.market import candles, normalize, ASSETS, LiveDataError
-from app.services.indicators import build
-from app.services.smc import analyze as smc_analyze, order_block
-from app.services.session import info as session_info
+from app.services.indicators import base
+from app.services.profile import frequency_volume_profile
+from app.services.smc_sb_raven import smc_model, sb_model, raven_model
 from app.services.news import get as news_get
+from app.services.session import info as session_info
 
-def rp(symbol, val):
-    pip=ASSETS[symbol]["pip"]
-    if pip>=0.1: return round(float(val),2)
-    if pip>=0.01: return round(float(val),3)
-    return round(float(val),5)
-
-def direction_from_score(score):
-    if score >= settings.STRONG_SIGNAL_SCORE: return "STRONG BUY"
-    if score >= settings.MIN_SIGNAL_SCORE: return "BUY"
-    if score >= 45: return "SCALP BUY"
-    if score <= -settings.STRONG_SIGNAL_SCORE: return "STRONG SELL"
-    if score <= -settings.MIN_SIGNAL_SCORE: return "SELL"
-    if score <= -45: return "SCALP SELL"
-    return "WAIT"
-
-def zone_pips(symbol, low, high):
-    return abs(high-low)/ASSETS[symbol]["pip"]
-
-def tight_plan(symbol, direction, ind, ob):
-    price=ind["price"]; atr=ind["atr"]; pip=ASSETS[symbol]["pip"]
-    # Sniper width capped: forex 4-8 pips, gold/oil adaptive
-    if pip == 0.0001:
-        width=max(3*pip, min(8*pip, atr*0.18))
-    elif pip == 0.10:
-        width=max(1.0, min(4.0, atr*0.20))
+def rp(sym,v):
+    pip=ASSETS[sym]['pip']
+    if pip>=0.1: return round(float(v),2)
+    if pip>=0.01: return round(float(v),3)
+    return round(float(v),5)
+def pips(sym,lo,hi): return round(abs(hi-lo)/ASSETS[sym]['pip'],1)
+def action_from(score):
+    if score>=78: return 'STRONG BUY'
+    if score>=settings.MIN_TRADE_SCORE: return 'BUY'
+    if score>=38: return 'SCALP BUY'
+    if score<=-78: return 'STRONG SELL'
+    if score<=-settings.MIN_TRADE_SCORE: return 'SELL'
+    if score<=-38: return 'SCALP SELL'
+    return 'BUY WATCH' if score>18 else 'SELL WATCH' if score<-18 else 'WAIT'
+def plan(sym,act,ind,profile):
+    price=ind['price']; pip=ASSETS[sym]['pip']; atr=ind['atr']
+    width = max(3*pip, min(8*pip, atr*0.14)) if pip==0.0001 else max(1.0,min(4.0,atr*.16)) if pip==0.10 else max(.04,min(.18,atr*.16))
+    direction='buy' if 'BUY' in act else 'sell' if 'SELL' in act else 'none'
+    if direction=='buy':
+        lo=max(min(profile['val'], price), price-width); hi=min(max(profile['poc'],price), price+width)
+        sl=lo-max(width*1.8,atr*.30); tp1=hi+max(width*1.4,atr*.30); tp2=hi+max(width*2.5,atr*.55); full=hi+max(width*3.3,atr*.75); interval_display=f'{rp(sym,lo)} → {rp(sym,hi)}'
+    elif direction=='sell':
+        hi=min(max(profile['vah'], price), price+width); lo=max(min(profile['poc'],price), price-width)
+        sl=hi+max(width*1.8,atr*.30); tp1=lo-max(width*1.4,atr*.30); tp2=lo-max(width*2.5,atr*.55); full=lo-max(width*3.3,atr*.75); interval_display=f'{rp(sym,hi)} → {rp(sym,lo)}'
     else:
-        width=max(0.05, min(0.20, atr*0.20))
-    if direction=="buy":
-        low=max(min(ob["low"],price), price-width)
-        high=min(max(ob["high"],price), price+width)
-        sl=low - max(width*1.7, atr*0.35)
-        tp1=high + max(width*1.5, atr*0.35)
-        tp2=high + max(width*2.8, atr*0.7)
-        full=high + max(width*3.5, atr*0.9)
-        invalid=sl
-    elif direction=="sell":
-        low=max(min(ob["low"],price), price-width)
-        high=min(max(ob["high"],price), price+width)
-        sl=high + max(width*1.7, atr*0.35)
-        tp1=low - max(width*1.5, atr*0.35)
-        tp2=low - max(width*2.8, atr*0.7)
-        full=low - max(width*3.5, atr*0.9)
-        invalid=sl
-    else:
-        low=ind["support_soft"]; high=ind["resistance_soft"]; sl=price-atr; tp1=price+atr; tp2=price+atr*1.5; full=price+atr*2; invalid=sl
-    return {
-        "entry":{"low":rp(symbol,low), "high":rp(symbol,high), "pips":round(zone_pips(symbol, low, high),1)},
-        "stop_loss":rp(symbol,sl), "tp1_partial_close":rp(symbol,tp1), "tp2":rp(symbol,tp2),
-        "full_close":rp(symbol,full), "invalidation":rp(symbol,invalid),
-        "after_tp1":"Close 50% and move SL to breakeven."
-    }
-
+        lo=profile['val']; hi=profile['vah']; sl=price-atr; tp1=price+atr; tp2=price+atr*1.6; full=price+atr*2.1; interval_display=f'{rp(sym,lo)} → {rp(sym,hi)}'
+    return {'direction':direction,'entry':{'low':rp(sym,lo),'high':rp(sym,hi),'display':interval_display,'pips':pips(sym,lo,hi)},'stop_loss':rp(sym,sl),'tp1_partial_close':rp(sym,tp1),'tp2':rp(sym,tp2),'full_close':rp(sym,full),'invalidation':rp(sym,sl),'after_tp1':'Close 50% and move SL to breakeven.'}
 def signal(asset):
-    symbol=normalize(asset)
-    try:
-        live=candles(symbol)
-    except LiveDataError as e:
-        return {"status":"error","asset":symbol,"display":ASSETS[symbol]["display"],"message":"LIVE DATA ERROR — no fake price shown.","error":str(e)}
-    cs=live["candles"]; ind=build(cs); smc=smc_analyze(cs,ind); ses=session_info(); nw=news_get(symbol)
-    matched=[]; missing=[]
-    bull=0; bear=0
-
-    # SMC weighted but not mandatory
-    if smc["score"]>0: bull += abs(smc["score"]); matched += smc["matched"]
-    elif smc["score"]<0: bear += abs(smc["score"]); matched += smc["matched"]
-    missing += smc["missing"]
-
-    # Trend/momentum reacts faster than V5
-    if ind["trend"]=="bullish": bull+=15; matched.append("EMA trend bullish.")
-    elif ind["trend"]=="bearish": bear+=15; matched.append("EMA trend bearish.")
-    else: missing.append("EMA trend mixed.")
-
-    if ind["momentum"]>0.00025: bull+=14; matched.append("Short-term momentum bullish.")
-    elif ind["momentum"]<-0.00025: bear+=14; matched.append("Short-term momentum bearish.")
-    else: missing.append("Momentum weak.")
-
-    if ind["pressure"]>0.25: bull+=10; matched.append("Recent candle pressure bullish.")
-    elif ind["pressure"]<-0.25: bear+=10; matched.append("Recent candle pressure bearish.")
-    else: missing.append("Candle pressure neutral.")
-
-    if ind["rsi"]<35: bull+=8; matched.append("RSI low/oversold supports buy bounce.")
-    elif ind["rsi"]>65: bear+=8; matched.append("RSI high/overbought supports sell pullback.")
-    else: missing.append("RSI not extreme.")
-
-    if nw["score"]>0: bull+=min(14,nw["score"]); matched.append(f"News bias bullish: {nw['explanation']}")
-    elif nw["score"]<0: bear+=min(14,abs(nw["score"])); matched.append(f"News bias bearish: {nw['explanation']}")
-    else: missing.append(nw["explanation"])
-
-    if ses["score"]>0:
-        bull+=ses["score"]/2; bear+=ses["score"]/2; matched.append(f"Good session: {ses['name']}.")
-    elif ses["score"]<0:
-        bull+=ses["score"]; bear+=ses["score"]; missing.append("Low liquidity session reduces quality.")
-
-    net=bull-bear
-    dominant="buy" if net>0 else "sell" if net<0 else "neutral"
-    quality=max(bull,bear)
-    signed_quality=quality if dominant=="buy" else -quality if dominant=="sell" else 0
-    act=direction_from_score(signed_quality)
-
-    # Avoid permanent no-trade: show directional watch if not enough score
-    if act=="WAIT":
-        act="BUY WATCH" if dominant=="buy" and quality>=35 else "SELL WATCH" if dominant=="sell" and quality>=35 else "WAIT"
-
-    plan_dir="buy" if "BUY" in act else "sell" if "SELL" in act else "none"
-    ob=order_block(cs, plan_dir)
-    plan=tight_plan(symbol, plan_dir, ind, ob)
-
-    # Timers
-    timer=10*60 if "WATCH" in act or "SCALP" in act else 30*60 if act in ["BUY","SELL"] else 45*60
-    if act=="WAIT": timer=5*60
-
-    warning = "No forced trade. Wait for trigger." if act=="WAIT" else f"{act}: use exact entry interval only; cancel if invalidation breaks."
-
-    return {
-        "status":"live","asset":symbol,"display":ASSETS[symbol]["display"],"price":rp(symbol,ind["price"]),
-        "action":act,"bias":dominant,"quality":round(quality,1),"raw_net":round(net,1),
-        "source":live["source"],"source_time":live["source_time"],"cache_age":live["cache_age"],
-        "indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(symbol,ind["atr"])},
-        "plan":plan,"timer_seconds":timer,"warning":warning,
-        "matched":matched[:9],"missing":missing[:9],
-        "smc":smc,"news":nw,"session":ses,
-        "decision_note":"V6 uses weighted scoring; it does not require liquidity sweep + FVG + BOS all together."
-    }
+    sym=normalize(asset)
+    try: live=candles(sym)
+    except LiveDataError as e: return {'status':'error','asset':sym,'display':ASSETS[sym]['display'],'message':'LIVE DATA ERROR — no live price shown.','error':str(e)}
+    cs=live['candles']; ind=base(cs); nw=news_get(sym); ses=session_info()
+    prof=frequency_volume_profile(cs); smc=smc_model(cs,ind); sb=sb_model(cs,ind); raven=raven_model(cs,ind,nw['score'])
+    models=[prof,smc,sb,raven]
+    score=0; alerts=[]
+    for m in models:
+        score += m.get('score',0)
+        if m.get('triggered'):
+            alerts.append({'name':m['name'],'direction':m.get('direction','neutral'),'score':m.get('score',0),'message':m.get('message') or '; '.join(m.get('alerts',[]))})
+    if ind['trend']=='bullish': score+=10
+    elif ind['trend']=='bearish': score-=10
+    if ind['momentum']>0.00025: score+=9
+    elif ind['momentum']<-0.00025: score-=9
+    if ind['pressure']>0.25: score+=7
+    elif ind['pressure']<-0.25: score-=7
+    score += ses['score'] + nw['score']
+    act=action_from(score); trplan=plan(sym,act,ind,prof)
+    return {'status':'live','asset':sym,'display':ASSETS[sym]['display'],'price':rp(sym,ind['price']),'action':act,'score':round(score,1),'bias':'buy' if score>0 else 'sell' if score<0 else 'neutral','source':live['source'],'source_time':live['source_time'],'cache_age':live['cache_age'],'strategy_alerts':alerts,'models':{'profile':prof,'smc':smc,'sb':sb,'raven':raven},'indicators':{'trend':ind['trend'],'rsi':ind['rsi'],'momentum':round(ind['momentum'],6),'pressure':round(ind['pressure'],3),'atr':rp(sym,ind['atr'])},'plan':trplan,'timer_seconds':10*60 if 'SCALP' in act or 'WATCH' in act else 30*60,'news':nw,'session':ses,'warning':('Use the descending sell interval only.' if 'SELL' in act else 'Use the ascending buy interval only.' if 'BUY' in act else 'No clean execution; watch alerts only.'),'note':'V7 focuses only on Frequency/Volume Profile, SB, SMC, and RAVEN alerts. Each alert appears separately when it happens.'}

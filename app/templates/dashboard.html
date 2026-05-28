@@ -1,52 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MarketMind AI V6</title>
-<style>
-:root{--bg:#050b16;--card:#101d31;--card2:#173457;--border:#3a68a0;--text:#eef6ff;--muted:#9fb2cc;--buy:#2ed47a;--sell:#ff6464;--wait:#f2c94c;--blue:#58a6ff;--err:#ff7676}
-*{box-sizing:border-box}body{margin:0;font-family:Arial;background:radial-gradient(circle at top,#123968,var(--bg));color:var(--text)}
-header{position:sticky;top:0;z-index:5;padding:22px 28px;background:rgba(5,11,22,.95);border-bottom:1px solid var(--border)}h1{margin:0;font-size:30px}.sub,.status{color:var(--muted);margin-top:8px}
-.wrap{max-width:1550px;margin:auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:18px}
-.card{background:linear-gradient(160deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:20px;padding:20px;box-shadow:0 14px 35px rgba(0,0,0,.35)}.err{border-color:var(--err)}
-.top{display:flex;justify-content:space-between;gap:10px}.asset{font-size:25px;font-weight:800}.src{font-size:12px;color:var(--muted);margin-top:4px}.price{font-size:28px;margin-top:12px}.pill{border-radius:999px;padding:10px 14px;font-weight:900;font-size:13px;text-align:center;height:max-content}
-.buy{background:rgba(46,212,122,.18);border:1px solid rgba(46,212,122,.45);color:var(--buy)}.sell{background:rgba(255,100,100,.18);border:1px solid rgba(255,100,100,.45);color:var(--sell)}.wait{background:rgba(242,201,76,.18);border:1px solid rgba(242,201,76,.45);color:var(--wait)}
-.warn{margin-top:14px;padding:12px;border-radius:12px;background:rgba(255,197,66,.12);border:1px solid rgba(255,197,66,.35);color:#ffe0a3;font-weight:bold}
-.boxes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.box{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:13px;padding:11px}.label{color:var(--muted);font-size:12px}.val{font-size:18px;font-weight:800;margin-top:5px}.entry .val{font-size:20px;color:#cfe7ff}.title{margin-top:18px;color:var(--blue);font-weight:900}ul{line-height:1.45;color:#d9e9ff}.small{font-size:13px;color:var(--muted)}.errorbox{padding:14px;margin-top:14px;border-radius:12px;background:rgba(255,118,118,.12);border:1px solid rgba(255,118,118,.5);color:#ffd2d2;font-weight:bold}
-</style>
-</head>
-<body>
-<header><h1>MarketMind AI V6 — Balanced Pro</h1><div class="sub">Weighted scoring • exact sniper entries • matched/missing conditions • fewer false NO TRADE results</div><div id="status" class="status">Loading...</div></header>
-<div class="wrap"><div id="grid" class="grid"></div></div>
-<script>
-const refresh={{ refresh }};let sigs=[];const grid=document.getElementById("grid"),status=document.getElementById("status");
-function fmt(sec){sec=Math.max(0,Math.floor(sec||0));let m=Math.floor(sec/60),s=sec%60;return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
-function cls(a){if(!a)return"wait";if(a.includes("BUY"))return"buy";if(a.includes("SELL"))return"sell";return"wait"}
-function card(s,i){
-if(s.status!=="live")return `<div class="card err"><div class="asset">${s.display||s.asset}</div><div class="errorbox">⚠️ ${s.message}<br>${s.error||""}</div></div>`;
-let p=s.plan;
-return `<div class="card">
-<div class="top"><div><div class="asset">${s.display}</div><div class="src">${s.source} • ${s.source_time||"-"} • cache ${s.cache_age}s</div></div><div class="pill ${cls(s.action)}">${s.action}</div></div>
-<div class="price">Price: <b>${s.price}</b></div><div class="small">Quality ${s.quality}% • Bias ${s.bias} • Net ${s.raw_net} • ${s.indicators.trend}</div>
-<div class="warn">⚠️ ${s.warning}</div>
-<div class="boxes">
-<div class="box entry"><div class="label">EXACT ENTRY</div><div class="val">${p.entry.low} → ${p.entry.high} (${p.entry.pips} pips)</div></div>
-<div class="box"><div class="label">Signal Timer</div><div class="val timer" data-i="${i}">${fmt(s.timer_seconds)}</div></div>
-<div class="box"><div class="label">Stop Loss</div><div class="val">${p.stop_loss}</div></div>
-<div class="box"><div class="label">Invalidation</div><div class="val">${p.invalidation}</div></div>
-<div class="box"><div class="label">TP1 / Partial Close</div><div class="val">${p.tp1_partial_close}</div></div>
-<div class="box"><div class="label">TP2</div><div class="val">${p.tp2}</div></div>
-<div class="box"><div class="label">Full Close</div><div class="val">${p.full_close}</div></div>
-<div class="box"><div class="label">After TP1</div><div class="val small">${p.after_tp1}</div></div>
-</div>
-<div class="title">Matched Conditions</div><ul>${s.matched.map(x=>`<li>${x}</li>`).join("")}</ul>
-<div class="title">Missing / Weak Conditions</div><ul>${s.missing.map(x=>`<li>${x}</li>`).join("")}</ul>
-<div class="title">Decision Note</div><div class="small">${s.decision_note}</div>
-</div>`;
-}
-async function load(){status.textContent="Updating V6 live signals...";try{let r=await fetch("/api/v6/signals",{cache:"no-store"});let d=await r.json();sigs=d.signals||[];grid.innerHTML=sigs.map(card).join("");status.textContent=`Last updated ${new Date().toLocaleTimeString()} • next update in ${refresh}s`;}catch(e){status.textContent="Error: "+e}}
-setInterval(()=>{document.querySelectorAll(".timer").forEach(el=>{let i=+el.dataset.i;if(sigs[i]){sigs[i].timer_seconds=Math.max(0,sigs[i].timer_seconds-1);el.textContent=fmt(sigs[i].timer_seconds)}})},1000);
-load();setInterval(load,refresh*1000);
-</script>
-</body>
-</html>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MarketMind AI V7</title><style>
+:root{--bg:#050b16;--card:#101d31;--card2:#18385e;--border:#3a68a0;--text:#eef6ff;--muted:#9fb2cc;--buy:#2ed47a;--sell:#ff6464;--wait:#f2c94c;--blue:#58a6ff;--purple:#bd93f9;--err:#ff7676}*{box-sizing:border-box}body{margin:0;font-family:Arial;background:radial-gradient(circle at top,#123968,var(--bg));color:var(--text)}header{position:sticky;top:0;z-index:5;padding:22px 28px;background:rgba(5,11,22,.95);border-bottom:1px solid var(--border)}h1{margin:0;font-size:30px}.sub,.status{color:var(--muted);margin-top:8px}.wrap{max-width:1600px;margin:auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:18px}.card{background:linear-gradient(160deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:20px;padding:20px;box-shadow:0 14px 35px rgba(0,0,0,.35)}.top{display:flex;justify-content:space-between;gap:10px}.asset{font-size:25px;font-weight:800}.src{font-size:12px;color:var(--muted);margin-top:4px}.price{font-size:28px;margin-top:12px}.pill{border-radius:999px;padding:10px 14px;font-weight:900;font-size:13px;text-align:center}.buy{background:rgba(46,212,122,.18);border:1px solid rgba(46,212,122,.45);color:var(--buy)}.sell{background:rgba(255,100,100,.18);border:1px solid rgba(255,100,100,.45);color:var(--sell)}.wait{background:rgba(242,201,76,.18);border:1px solid rgba(242,201,76,.45);color:var(--wait)}.warn{margin-top:14px;padding:12px;border-radius:12px;background:rgba(255,197,66,.12);border:1px solid rgba(255,197,66,.35);color:#ffe0a3;font-weight:bold}.boxes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.box{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:13px;padding:11px}.label{color:var(--muted);font-size:12px}.val{font-size:18px;font-weight:800;margin-top:5px}.entry .val{font-size:20px;color:#cfe7ff}.title{margin-top:18px;color:var(--blue);font-weight:900}.alert{padding:10px;border-radius:12px;margin-top:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05)}.alert.buy{border-color:rgba(46,212,122,.45)}.alert.sell{border-color:rgba(255,100,100,.45)}.small{font-size:13px;color:var(--muted)}.err{border-color:var(--err)}.errorbox{padding:14px;margin-top:14px;border-radius:12px;background:rgba(255,118,118,.12);border:1px solid rgba(255,118,118,.5);color:#ffd2d2;font-weight:bold}</style></head><body>
+<header><h1>MarketMind AI V7 — Profile + SB + SMC + RAVEN</h1><div class="sub">Separate strategy alerts • ascending BUY interval • descending SELL interval • live-only</div><div id="status" class="status">Loading...</div></header><div class="wrap"><div id="grid" class="grid"></div></div><script>
+const refresh={{ refresh }};let sigs=[];const grid=document.getElementById('grid'),status=document.getElementById('status');function fmt(sec){sec=Math.max(0,Math.floor(sec||0));let m=Math.floor(sec/60),s=sec%60;return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}function cls(a){if(!a)return'wait';if(a.includes('BUY'))return'buy';if(a.includes('SELL'))return'sell';return'wait'}function card(s,i){if(s.status!=='live')return `<div class="card err"><div class="asset">${s.display||s.asset}</div><div class="errorbox">⚠️ ${s.message}<br>${s.error||''}</div></div>`;let p=s.plan;let alerts=s.strategy_alerts.length?s.strategy_alerts.map(a=>`<div class="alert ${a.direction==='buy'?'buy':a.direction==='sell'?'sell':''}"><b>${a.name}</b> • ${a.direction.toUpperCase()} • score ${a.score}<br><span class="small">${a.message}</span></div>`).join(''):'<div class="alert"><b>No strategy alert right now</b><br><span class="small">Waiting for Profile/SB/SMC/RAVEN trigger.</span></div>';return `<div class="card"><div class="top"><div><div class="asset">${s.display}</div><div class="src">${s.source} • ${s.source_time||'-'} • cache ${s.cache_age}s</div></div><div class="pill ${cls(s.action)}">${s.action}</div></div><div class="price">Price: <b>${s.price}</b></div><div class="small">Score ${s.score} • Bias ${s.bias} • Trend ${s.indicators.trend}</div><div class="warn">⚠️ ${s.warning}</div><div class="boxes"><div class="box entry"><div class="label">EXACT ENTRY INTERVAL</div><div class="val">${p.entry.display} (${p.entry.pips} pips)</div></div><div class="box"><div class="label">Timer</div><div class="val timer" data-i="${i}">${fmt(s.timer_seconds)}</div></div><div class="box"><div class="label">Stop Loss</div><div class="val">${p.stop_loss}</div></div><div class="box"><div class="label">Invalidation</div><div class="val">${p.invalidation}</div></div><div class="box"><div class="label">TP1 / Partial Close</div><div class="val">${p.tp1_partial_close}</div></div><div class="box"><div class="label">TP2</div><div class="val">${p.tp2}</div></div><div class="box"><div class="label">Full Close</div><div class="val">${p.full_close}</div></div><div class="box"><div class="label">Volume Profile</div><div class="val small">POC ${s.models.profile.poc.toFixed(5)}<br>VAL ${s.models.profile.val.toFixed(5)} / VAH ${s.models.profile.vah.toFixed(5)}</div></div></div><div class="title">Strategy Alerts</div>${alerts}<div class="title">Model Details</div><div class="small">SMC: ${s.models.smc.alerts.join(' | ')}<br>SB: ${s.models.sb.alerts.join(' | ')}<br>RAVEN: ${s.models.raven.alerts.join(' | ')}</div><div class="title">Note</div><div class="small">${s.note}</div></div>`}
+async function load(){status.textContent='Updating V7 live signals...';try{let r=await fetch('/api/v7/signals',{cache:'no-store'});let d=await r.json();sigs=d.signals||[];grid.innerHTML=sigs.map(card).join('');status.textContent=`Last updated ${new Date().toLocaleTimeString()} • next update in ${refresh}s`;}catch(e){status.textContent='Error: '+e}}setInterval(()=>{document.querySelectorAll('.timer').forEach(el=>{let i=+el.dataset.i;if(sigs[i]){sigs[i].timer_seconds=Math.max(0,sigs[i].timer_seconds-1);el.textContent=fmt(sigs[i].timer_seconds)}})},1000);load();setInterval(load,refresh*1000);
+</script></body></html>

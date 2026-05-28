@@ -1,29 +1,30 @@
-# MarketMind AI V6 Balanced Pro
+# MarketMind AI V7 — Profile + SMC + SB + RAVEN
 
-This version fixes the V5 problem where it showed NO TRADE too often.
+Focused version based on your feedback.
 
-## Key changes
-- Uses weighted scoring instead of requiring every strategy together
-- Shows Matched Conditions and Missing Conditions
-- Gives SELL/BUY if market direction is clear even without perfect SMC setup
-- Adds momentum and candle pressure detection
-- Keeps SMC/SB models but does not force all of them at once
-- Exact scalp interval, SL, TP1, TP2, full close, invalidation
-- Signal quality score and direction bias
-- Live data only, no fake prices
-- AJAX updates
-- API cache protection
+## Main changes
+- Live data only, no fake/demo candles.
+- Frequency/Volume Profile layer using price-frequency proxy when true volume is unavailable.
+- Separate strategy alerts inside every asset card:
+  - Frequency Profile alert
+  - SB model alert
+  - SMC model alert
+  - RAVEN composite alert
+- Each strategy can trigger independently; it does not require all strategies together.
+- Buy entry interval displays ascending: low → high.
+- Sell entry interval displays descending: high → low.
+- Scalp plan includes exact entry, SL, TP1, TP2, full close, invalidation, timer.
+- Weighted decision engine: trade can appear when one strong model or several medium models align.
 
-## Required Railway Variables
+## Required Railway variables
 DATABASE_URL
 SECRET_KEY
 TWELVEDATA_API_KEY
 
-Optional:
+Recommended:
 NEWS_API_KEY
 ACTIVE_ASSETS=EURUSD,GBPUSD,XAUUSD
 DASHBOARD_REFRESH_SECONDS=15
 MARKET_CACHE_SECONDS=180
 NEWS_CACHE_SECONDS=600
-MIN_SIGNAL_SCORE=58
-STRONG_SIGNAL_SCORE=78
+MIN_TRADE_SCORE=54
