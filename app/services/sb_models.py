@@ -1,54 +1,28 @@
-def detect_liquidity_sweep(candles, ind):
-    last = candles[-1]
-    prev_high, prev_low = ind["prev_high"], ind["prev_low"]
-    bearish = last["high"] > prev_high and last["close"] < prev_high
-    bullish = last["low"] < prev_low and last["close"] > prev_low
-    if bullish:
-        return {"type": "bullish_liquidity_sweep", "score": 0.32, "reason": "Liquidity swept below previous low and closed back above it."}
-    if bearish:
-        return {"type": "bearish_liquidity_sweep", "score": -0.32, "reason": "Liquidity swept above previous high and closed back below it."}
-    return {"type": "none", "score": 0.0, "reason": "No clean liquidity sweep detected."}
-
-def detect_fvg(candles):
-    if len(candles) < 5:
-        return {"type": "none", "score": 0.0, "zone": None, "reason": "Not enough candles for FVG."}
-    a, _, c = candles[-3], candles[-2], candles[-1]
-    if c["low"] > a["high"]:
-        return {"type": "bullish_fvg", "score": 0.22, "zone": {"low": a["high"], "high": c["low"]}, "reason": "Bullish Fair Value Gap detected."}
-    if c["high"] < a["low"]:
-        return {"type": "bearish_fvg", "score": -0.22, "zone": {"low": c["high"], "high": a["low"]}, "reason": "Bearish Fair Value Gap detected."}
-    return {"type": "none", "score": 0.0, "zone": None, "reason": "No clean FVG detected."}
-
-def detect_bos_choch(candles, ind):
-    last = candles[-1]
-    recent = candles[-12:]
-    prior = recent[:-1]
-    recent_high = max(c["high"] for c in prior)
-    recent_low = min(c["low"] for c in prior)
-    if last["close"] > recent_high and ind["trend"] == "bullish":
-        return {"type": "bullish_bos", "score": 0.24, "reason": "Bullish Break of Structure detected."}
-    if last["close"] < recent_low and ind["trend"] == "bearish":
-        return {"type": "bearish_bos", "score": -0.24, "reason": "Bearish Break of Structure detected."}
-    if last["close"] > recent_high and ind["trend"] == "bearish":
-        return {"type": "bullish_choch", "score": 0.18, "reason": "Bullish CHOCH after bearish structure."}
-    if last["close"] < recent_low and ind["trend"] == "bullish":
-        return {"type": "bearish_choch", "score": -0.18, "reason": "Bearish CHOCH after bullish structure."}
-    return {"type": "none", "score": 0.0, "reason": "No BOS/CHOCH confirmation."}
-
-def order_block_zone(candles, direction):
-    lookback = candles[-12:]
-    if "BUY" in direction:
-        matches = [c for c in lookback if c["close"] < c["open"]]
-    elif "SELL" in direction:
-        matches = [c for c in lookback if c["close"] > c["open"]]
-    else:
-        matches = []
-    base = matches[-1] if matches else lookback[-2]
-    return {"low": min(base["open"], base["close"], base["low"]), "high": max(base["open"], base["close"], base["high"])}
-
-def analyze_sb(candles, ind):
-    sweep = detect_liquidity_sweep(candles, ind)
-    fvg = detect_fvg(candles)
-    structure = detect_bos_choch(candles, ind)
-    score = sweep["score"] + fvg["score"] + structure["score"]
-    return {"score": round(score, 3), "liquidity_sweep": sweep, "fvg": fvg, "structure": structure, "reasons": [sweep["reason"], fvg["reason"], structure["reason"]]}
+def liquidity_sweep(c,ind):
+    last=c[-1]
+    bull=last['low']<ind['prev_low'] and last['close']>ind['prev_low']
+    bear=last['high']>ind['prev_high'] and last['close']<ind['prev_high']
+    if bull: return {'dir':'bullish','score':26,'reason':'Bullish liquidity sweep below previous low.'}
+    if bear: return {'dir':'bearish','score':-26,'reason':'Bearish liquidity sweep above previous high.'}
+    return {'dir':'none','score':0,'reason':'No liquidity sweep.'}
+def fvg(c):
+    if len(c)<5: return {'dir':'none','score':0,'zone':None,'reason':'Not enough candles for FVG.'}
+    a,b,x=c[-3],c[-2],c[-1]
+    if x['low']>a['high']: return {'dir':'bullish','score':18,'zone':{'low':a['high'],'high':x['low']},'reason':'Bullish FVG detected.'}
+    if x['high']<a['low']: return {'dir':'bearish','score':-18,'zone':{'low':x['high'],'high':a['low']},'reason':'Bearish FVG detected.'}
+    return {'dir':'none','score':0,'zone':None,'reason':'No FVG.'}
+def structure(c,ind):
+    last=c[-1]; r=c[-12:]; rh=max(x['high'] for x in r[:-1]); rl=min(x['low'] for x in r[:-1])
+    if last['close']>rh: return {'dir':'bullish','score':22,'reason':'Bullish BOS/CHOCH confirmation.'}
+    if last['close']<rl: return {'dir':'bearish','score':-22,'reason':'Bearish BOS/CHOCH confirmation.'}
+    return {'dir':'none','score':0,'reason':'No BOS/CHOCH confirmation.'}
+def order_block(c,direction):
+    r=c[-14:]
+    if direction=='buy': pool=[x for x in r if x['close']<x['open']]
+    elif direction=='sell': pool=[x for x in r if x['close']>x['open']]
+    else: pool=[]
+    base=pool[-1] if pool else r[-2]
+    return {'low':min(base['open'],base['close'],base['low']),'high':max(base['open'],base['close'],base['high'])}
+def analyze(c,ind):
+    l=liquidity_sweep(c,ind); g=fvg(c); st=structure(c,ind); total=l['score']+g['score']+st['score']
+    return {'score':total,'liquidity_sweep':l,'fvg':g,'structure':st,'reasons':[l['reason'],g['reason'],st['reason']]}
