@@ -4,6 +4,7 @@ from app.services.indicators import build
 from app.services.core import detect
 from app.services.adaptive import get_weights, performance_for_active
 from app.services.session import info as session_info
+from app.services.smc2 import smc2_analysis
 from app.services.history_memory import level_memory
 def rp(sym,v):
     pip=ASSETS[sym]["pip"]
@@ -360,11 +361,42 @@ def build_best_action(sym, d, pl, hm, ad, ind, det):
         }
     }
 
+
+def smc2_final_adjustment(result_direction, result_action, smc2, probability_up, probability_down):
+    # SMC 2.0 is a context/zone/trigger module.
+    # It can upgrade confidence when it agrees, or downgrade when it conflicts.
+    smc_dir = smc2.get("direction", "NEUTRAL")
+    smc_conf = smc2.get("confidence", 0)
+    note = "SMC 2.0 neutral; normal decision rules used."
+
+    if smc_dir == "NEUTRAL":
+        return result_action, note, 0
+
+    if smc_dir in result_action:
+        note = "SMC 2.0 agrees with the final direction."
+        return result_action, note, 8
+
+    if result_action == "WAIT" or "WATCH" in result_action or "SETUP" in result_action:
+        if smc_conf >= 60:
+            note = f"SMC 2.0 favors {smc_dir}; final action stays conditional until trigger confirms."
+            return f"CONDITIONAL {smc_dir}", note, 5
+
+    # Conflict: SMC says opposite direction.
+    if smc_conf >= 65:
+        note = f"SMC 2.0 conflicts with current direction; avoid execution until resolved."
+        return f"NO TRADE - SMC CONFLICT", note, -12
+
+    return result_action, "SMC 2.0 weak conflict/mixed; no upgrade.", -4
+
+
 def signal(db,asset):
     sym=normalize(asset)
     try: snap=snapshot(db,sym)
     except LiveDataError as exc: return {"status":"error","asset":sym,"display":ASSETS[sym]["display"],"message":"LIVE DATA ERROR — no live price shown.","error":str(exc)}
-    c=snap["candles"]; ind=build(c); weights=get_weights(db,sym); det=detect(c,ind,weights); alerts=det["alerts"]; active=list({a["strategy"] for a in alerts})
+    c=snap["candles"]; ind=build(c); smc2=smc2_analysis(sym,c,ind,ASSETS); weights=get_weights(db,sym); det=detect(c,ind,weights); alerts=det["alerts"]; active=list({a["strategy"] for a in alerts})
     ad=performance_for_active(db,sym,active); ses=session_info(); d=decide(det["master"],det["execution"],ses,ad,ind,sym); pl=plan(sym,d,ind); hm=level_memory(db,sym,pl.get("primary_level"),d["bias"]); cr=close_rules(sym,d["bias"],ind,pl); ba=build_best_action(sym,d,pl,hm,ad,ind,det)
+    adjusted_action, smc_note, smc_bonus = smc2_final_adjustment(d["bias"], d["action"], smc2, d["probabilities"]["up"], d["probabilities"]["down"])
+    d["action"] = adjusted_action
+    d["confidence"] = max(20, min(99, d["confidence"] + smc_bonus))
     warning=f"{d['action']}: exact entry active." if d["active"] else f"{d['action']}: {d.get('decision_reason','wait for exact trigger')}"
-    return {"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"best_action":ba,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V15 uses SCALP READY, clear pullback/breakout triggers, adaptive backtest weights, and reward/risk filtering."}
+    return {"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"smc2":smc2,"smc_note":smc_note,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"best_action":ba,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"smc2_direction":smc2.get("direction"),"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V15 uses SCALP READY, clear pullback/breakout triggers, adaptive backtest weights, and reward/risk filtering."}
