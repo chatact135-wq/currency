@@ -1,34 +1,21 @@
-# MarketMind AI V12 — TwelveData + ML Pro
+# MarketMind AI V14 — Precision Trigger Pro
 
-This version returns to Twelve Data for market candles because Finnhub free access blocked forex/gold data.
+V14 focuses on precision instead of more indicators:
+- Master bias + execution alignment
+- Adaptive backtest edge
+- Reward/risk filter before ACTIVE signal
+- Clear trigger reason
+- Clear close plan: TP1, TP2, full close, emergency close, and trailing stop guidance
+- BUY exact entry ascending
+- SELL exact entry descending
 
-## What V12 does
-
-- Uses Twelve Data live candles for EURUSD, GBPUSD, XAUUSD
-- Stores candles in Neon PostgreSQL
-- Stores every generated signal in Neon
-- Evaluates old signals after a configured time window
-- Builds ML-ready datasets
-- Provides ML probability when enough history exists
-- Uses fallback statistical probability before ML has enough samples
-- Keeps Master Bias, Execution Trigger, Confirmation/Risk, Grade, and exact-entry logic
-- BUY interval = ascending
-- SELL interval = descending
-- WAIT/SETUP does not show fake exact entry
-
-## Required Railway Variables
-
+Required Railway variables:
 DATABASE_URL
 SECRET_KEY
 TWELVEDATA_API_KEY
 
-Keep FINNHUB_API_KEY optional; not required for prices.
-
-## Important API endpoints
-
+After deploy, open:
+/api/v14/admin/download-history
+/api/v14/admin/run-backtest
+/api/v14/admin/recalculate-weights
 /dashboard
-/api/v12/signals
-/api/v12/health
-/api/v12/admin/download-history
-/api/v12/admin/evaluate-signals
-/api/v12/ml/stats

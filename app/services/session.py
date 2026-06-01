@@ -14,4 +14,4 @@ def info():
     elif minutes>=16*60+30 or minutes<=60: name,score="New York Session",6
     elif 2*60<=minutes<=9*60: name,score="Low Liquidity",-10
     else: name,score="Normal Hours",0
-    return {"name":name,"score":score,"uae_time":n.strftime("%Y-%m-%d %H:%M:%S"),"london_countdown":secs(next_at(11,0)),"ny_countdown":secs(next_at(16,30)),"news_countdown":secs(next_at(16,30))}
+    return {"name":name,"score":score,"uae_time":n.strftime("%Y-%m-%d %H:%M:%S"),"london_countdown":secs(next_at(11,0)),"ny_countdown":secs(next_at(16,30))}

@@ -2,54 +2,51 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 import json
 from app.database import get_db
-from app.models import SignalLog, MarketCandle
+from app.models import SignalLog, MarketCandle, BacktestTrade, AdaptiveWeight
 from app.config import settings
 from app.services.market import active_assets, ASSETS, download_history
 from app.services.engine import signal
-from app.services.ml_engine import evaluate_old_signals, training_rows
-
-router=APIRouter(prefix="/api/v12", tags=["v12"])
-
+from app.services.backtest import run_backtest
+from app.services.adaptive import recalc_weights
+router=APIRouter(prefix="/api/v14",tags=["v14"])
 @router.get("/health")
-def health(db: Session = Depends(get_db)):
-    candle_counts={a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()}
-    return {"status":"ok","version":"12.0.0","provider":"TwelveData + Neon History + ML Memory","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candle_counts":candle_counts}
-
+def health(db:Session=Depends(get_db)):
+    return {"status":"ok","version":"14.0.0","provider":"TwelveData + Precision Trigger Pro","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
 @router.get("/signals")
-def signals(db: Session = Depends(get_db)):
-    return {"signals":[signal(db,a) for a in active_assets()]}
-
+def signals(db:Session=Depends(get_db)): return {"signals":[signal(db,a) for a in active_assets()]}
 @router.get("/signal/{asset}")
-def one(asset: str, db: Session = Depends(get_db)):
+def one(asset:str,db:Session=Depends(get_db)):
     r=signal(db,asset)
     if r.get("status")=="live":
-        plan=r["plan"]
-        row=SignalLog(asset=r["asset"],price=r["price"],final_action=r["final_action"],master_bias=r["master_bias"],stage=r["stage"],grade=r["grade"],confidence=r["confidence"],ml_probability=r["ml"].get("probability"),ml_status=r["ml"].get("status"),risk_level=r["risk_level"],probability_up=r["probabilities"]["up"],probability_sideways=r["probabilities"]["sideways"],probability_down=r["probabilities"]["down"],entry_display=plan.get("exact_entry") or plan.get("setup_zone"),stop_loss=plan.get("stop_loss"),tp1=plan.get("tp1_partial_close"),tp2=plan.get("tp2"),full_close=plan.get("full_close"),setup_score=r["master_engine"]["net"],trigger_score=r["execution_engine"]["net"],confirmation_score=r["confirmation_engine"]["modifier"],features_json=json.dumps(r["features"]),plan_json=json.dumps(plan),alerts_json=json.dumps(r["alerts"]))
-        db.add(row); db.commit()
+        p=r["plan"]; ad=r["adaptive"]
+        db.add(SignalLog(asset=r["asset"],price=r["price"],final_action=r["final_action"],master_bias=r["master_bias"],stage=r["stage"],grade=r["grade"],confidence=r["confidence"],adaptive_probability=ad.get("probability"),expected_edge_r=ad.get("expected_edge_r"),risk_level=r["risk_level"],probability_up=r["probabilities"]["up"],probability_sideways=r["probabilities"]["sideways"],probability_down=r["probabilities"]["down"],entry_display=p.get("exact_entry") or p.get("setup_zone"),stop_loss=p.get("stop_loss"),tp1=p.get("tp1_partial_close"),tp2=p.get("tp2"),full_close=p.get("full_close"),setup_score=r["master_engine"]["net"],trigger_score=r["execution_engine"]["net"],features_json=json.dumps(r["features"]),plan_json=json.dumps(p),alerts_json=json.dumps(r["alerts"])))
+        db.commit()
     return r
-
 @router.get("/admin/download-history")
-def admin_download_history(db: Session = Depends(get_db)):
-    results=[]
+def admin_download_history(db:Session=Depends(get_db)):
+    out=[]
     for a in active_assets():
-        try:
-            results.append(download_history(db,a,outputsize=settings.HISTORY_CANDLE_LIMIT))
-        except Exception as exc:
-            results.append({"asset":a,"error":str(exc)})
-    return {"results":results}
-
-@router.get("/admin/evaluate-signals")
-def admin_evaluate(db: Session = Depends(get_db)):
-    return evaluate_old_signals(db, settings.EVALUATION_MINUTES)
-
-@router.get("/ml/stats")
-def ml_stats(db: Session = Depends(get_db)):
+        try: out.append(download_history(db,a))
+        except Exception as exc: out.append({"asset":a,"error":str(exc)})
+    return {"results":out}
+@router.get("/admin/run-backtest")
+def admin_backtest(db:Session=Depends(get_db)):
+    out=[]
+    for a in active_assets():
+        try: out.append(run_backtest(db,a))
+        except Exception as exc: out.append({"asset":a,"error":str(exc)})
+    return {"results":out}
+@router.get("/admin/recalculate-weights")
+def admin_recalc(db:Session=Depends(get_db)): return {"results":{a:recalc_weights(db,a) for a in active_assets()}}
+@router.get("/ml/weights")
+def ml_weights(db:Session=Depends(get_db)):
+    return {"weights":[{"asset":r.asset,"strategy":r.strategy,"samples":r.samples,"win_rate":round(r.win_rate*100,1),"avg_r":round(r.avg_r,2),"learned_weight":round(r.learned_weight,2)} for r in db.query(AdaptiveWeight).all()]}
+@router.get("/ml/performance")
+def ml_perf(db:Session=Depends(get_db)):
     out={}
     for a in active_assets():
-        X,y=training_rows(db,a)
-        out[a]={"training_samples":len(y),"wins":sum(y),"losses":len(y)-sum(y)}
+        rows=db.query(BacktestTrade).filter(BacktestTrade.asset==a).all(); wins=sum(1 for x in rows if x.outcome=="WIN"); avg=sum(float(x.r_multiple or 0) for x in rows)/len(rows) if rows else 0
+        out[a]={"trades":len(rows),"wins":wins,"win_rate":round(wins/len(rows)*100,1) if rows else 0,"avg_r":round(avg,2)}
     return out
-
 @router.get("/assets")
-def assets():
-    return {"active":active_assets(),"supported":ASSETS}
+def assets(): return {"active":active_assets(),"supported":ASSETS}
