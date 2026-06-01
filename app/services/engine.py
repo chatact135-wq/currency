@@ -7,6 +7,7 @@ from app.services.session import info as session_info
 from app.services.smc2 import smc2_analysis
 from app.services.signal_lock import apply_signal_lock
 from app.services.time_forecast import forecast
+from app.services.news_engine import news_state
 from app.services.history_memory import level_memory
 def rp(sym,v):
     pip=ASSETS[sym]["pip"]
@@ -438,10 +439,28 @@ def final_decision_gate(d, ad, hm=None, smc2=None):
     }
 
 
+
+def apply_news_gate(result, news):
+    result["news"]=news
+    fd=result.get("final_decision") or {}
+    if news.get("risk")=="HIGH" and news.get("mode")=="NEWS_WAIT":
+        result["final_action"]="WAIT - NEWS COMING"
+        result["warning"]="High-impact news is close. Wait until release and first impulse confirms."
+        result["entry_permission"]="NO_ENTRY"
+        if fd:
+            fd["final_action"]="WAIT - NEWS COMING"; fd["command"]="DO NOT ENTER BEFORE NEWS"; fd["entry_permission"]="NO_ENTRY"; fd["rule"]="News gate blocks new entries before high-impact news."; result["final_decision"]=fd
+    elif news.get("risk")=="HIGH" and news.get("mode")=="POST_NEWS_IMPULSE":
+        result["warning"]="Post-news impulse window. Use only confirmed breakout/pullback, smaller risk."
+        if fd:
+            fd["rule"]=fd.get("rule","")+" Post-news impulse mode active."; result["final_decision"]=fd
+    return result
+
+
 def signal(db,asset):
     sym=normalize(asset)
     try: snap=snapshot(db,sym)
     except LiveDataError as exc: return {"status":"error","asset":sym,"display":ASSETS[sym]["display"],"message":"LIVE DATA ERROR — no live price shown.","error":str(exc)}
+    nw=news_state(sym)
     c=snap["candles"]; ind=build(c); smc2=smc2_analysis(sym,c,ind,ASSETS); weights=get_weights(db,sym); det=detect(c,ind,weights); alerts=det["alerts"]; active=list({a["strategy"] for a in alerts})
     ad=performance_for_active(db,sym,active); ses=session_info(); d=decide(det["master"],det["execution"],ses,ad,ind,sym); pl=plan(sym,d,ind); hm=level_memory(db,sym,pl.get("primary_level"),d["bias"]); cr=close_rules(sym,d["bias"],ind,pl)
     fd=final_decision_gate(d,ad,hm if "hm" in locals() else None,smc2 if "smc2" in locals() else None)
@@ -450,5 +469,6 @@ def signal(db,asset):
     d["action"] = adjusted_action
     d["confidence"] = max(20, min(99, d["confidence"] + smc_bonus))
     warning=f"{d['action']}: exact entry active." if d["active"] else f"{d['action']}: {d.get('decision_reason','wait for exact trigger')}"
-    result={"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"final_decision":fd,"time_forecast":tf,"smc2":smc2,"smc_note":smc_note,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"best_action":ba,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"smc2_direction":smc2.get("direction"),"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V20 uses a final decision gate plus time forecast so probability does not become a trade by itself."}
-    return apply_signal_lock(db,result)
+    result={"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"news":nw,"final_decision":fd,"time_forecast":tf,"smc2":smc2,"smc_note":smc_note,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"best_action":ba,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"smc2_direction":smc2.get("direction"),"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V21 adds news countdown and news risk gate before final trade permission."}
+    result=apply_signal_lock(db,result)
+    return apply_news_gate(result,nw)

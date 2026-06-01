@@ -6,12 +6,13 @@ from app.models import SignalLog, MarketCandle, BacktestTrade, AdaptiveWeight
 from app.config import settings
 from app.services.market import active_assets, ASSETS, download_history, backfill_months
 from app.services.engine import signal
+from app.services.news_engine import news_state
 from app.services.backtest import run_backtest
 from app.services.adaptive import recalc_weights
-router=APIRouter(prefix="/api/v20",tags=["v14"])
+router=APIRouter(prefix="/api/v21",tags=["v14"])
 @router.get("/health")
 def health(db:Session=Depends(get_db)):
-    return {"status":"ok","version":"20.0.0","provider":"TwelveData + Final Decision + Time Forecast","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
+    return {"status":"ok","version":"21.0.0","provider":"TwelveData + News Countdown + Final Decision","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
 @router.get("/signals")
 def signals(db:Session=Depends(get_db)): return {"signals":[signal(db,a) for a in active_assets()]}
 @router.get("/signal/{asset}")
@@ -71,3 +72,8 @@ def best_action(db:Session=Depends(get_db)):
 
 @router.get("/assets")
 def assets(): return {"active":active_assets(),"supported":ASSETS}
+
+
+@router.get("/news")
+def news():
+    return news_state()

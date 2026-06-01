@@ -20,4 +20,7 @@ class Settings:
     MIN_SCALP_READY_RR=float(os.getenv("MIN_SCALP_READY_RR","0.95"))
     BACKFILL_MONTHS=int(os.getenv("BACKFILL_MONTHS","6"))
     BACKFILL_CHUNK_DAYS=int(os.getenv("BACKFILL_CHUNK_DAYS","21"))
+    FMP_API_KEY=os.getenv("FMP_API_KEY","")
+    NEWS_PRE_WINDOW_MINUTES=int(os.getenv("NEWS_PRE_WINDOW_MINUTES","15"))
+    NEWS_POST_WINDOW_MINUTES=int(os.getenv("NEWS_POST_WINDOW_MINUTES","15"))
 settings=Settings()

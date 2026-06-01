@@ -1,34 +1,26 @@
-# MarketMind AI V20 — Final Decision + Time Forecast
+# MarketMind AI V21 — News Countdown + Final Decision
 
-V20 changes the dashboard from "many signals" to a real command-style output.
+Adds:
+- News countdown
+- USD/EUR/GBP news risk mode
+- Pre-news WAIT gate
+- Post-news impulse warning
+- /api/v21/news endpoint
+- Keeps final decision and time forecast
 
-It shows:
-- FINAL ACTION: ENTER BUY / ENTER SELL / WAIT / MANAGE / CANCEL
-- Direction forecast: UP / DOWN / SIDEWAYS
-- Estimated time to trigger
-- Estimated time to TP1
-- Estimated time to invalidation risk
-- Entry permission
-- Trigger, entry, stop loss, TP1, TP2, full close
-- Reason for the decision
-
-Important:
-No system can know the future exactly. V20 estimates time using:
-- recent candle speed
-- ATR
-- distance to trigger/TP/SL
-- momentum
-- historical memory
-- adaptive backtest data
-
-Required Railway variables:
+Required:
 DATABASE_URL
 SECRET_KEY
 TWELVEDATA_API_KEY
 
+Optional:
+FMP_API_KEY
+NEWS_PRE_WINDOW_MINUTES=15
+NEWS_POST_WINDOW_MINUTES=15
+
 After deploy:
-1. /api/v20/admin/backfill-six-months
-2. /api/v20/admin/run-backtest
-3. /api/v20/admin/recalculate-weights
-4. /dashboard
-5. /api/v20/best-action
+1. /api/v21/admin/backfill-six-months
+2. /api/v21/admin/run-backtest
+3. /api/v21/admin/recalculate-weights
+4. /api/v21/news
+5. /dashboard
