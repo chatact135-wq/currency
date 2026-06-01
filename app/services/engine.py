@@ -6,6 +6,7 @@ from app.services.adaptive import get_weights, performance_for_active
 from app.services.session import info as session_info
 from app.services.smc2 import smc2_analysis
 from app.services.signal_lock import apply_signal_lock
+from app.services.time_forecast import forecast
 from app.services.history_memory import level_memory
 def rp(sym,v):
     pip=ASSETS[sym]["pip"]
@@ -390,15 +391,64 @@ def smc2_final_adjustment(result_direction, result_action, smc2, probability_up,
     return result_action, "SMC 2.0 weak conflict/mixed; no upgrade.", -4
 
 
+
+def final_decision_gate(d, ad, hm=None, smc2=None):
+    action = d.get("action", "WAIT")
+    stage = d.get("stage", "WAIT")
+    direction = d.get("bias", "NEUTRAL")
+    conf = float(d.get("confidence") or 0)
+
+    # Default: no entry unless the system reaches active/execute status.
+    permission = "NO_ENTRY"
+    final = "WAIT"
+    command = "WAIT"
+
+    if "CANCEL" in action or "NO TRADE" in action:
+        final = "CANCEL / NO TRADE"
+        command = "DO NOT ENTER"
+    elif ("ACTIVE" in action or "EXECUTE" in action or stage == "EXECUTION ACTIVE") and direction in ["BUY", "SELL"]:
+        permission = "ENTRY_ALLOWED"
+        final = f"ENTER {direction}"
+        command = f"ENTER {direction} ONLY WITH SL/TP"
+    elif "READY" in action or "WATCH" in action or "CONDITIONAL" in action or "SETUP" in action:
+        final = f"WAIT FOR {direction} TRIGGER" if direction in ["BUY", "SELL"] else "WAIT"
+        command = "WAIT - DO NOT ENTER YET"
+    else:
+        final = "WAIT"
+        command = "WAIT - NO TRADE"
+
+    # Historical memory/adaptive can downgrade but not blindly upgrade.
+    if hm and hm.get("success_rate") is not None and hm.get("success_rate", 0) < 40 and permission == "ENTRY_ALLOWED":
+        permission = "NO_ENTRY"
+        final = f"WAIT - HISTORY WEAK FOR {direction}"
+        command = "WAIT - HISTORY DOES NOT SUPPORT ENTRY"
+
+    if ad and ad.get("probability") is not None and ad.get("probability", 0) < 52 and permission == "ENTRY_ALLOWED":
+        permission = "NO_ENTRY"
+        final = f"WAIT - BACKTEST EDGE WEAK FOR {direction}"
+        command = "WAIT - ADAPTIVE EDGE WEAK"
+
+    return {
+        "final_action": final,
+        "command": command,
+        "entry_permission": permission,
+        "direction": direction,
+        "confidence": conf,
+        "rule": "Entry is allowed only when final decision gate permits it. Probability alone is not entry permission."
+    }
+
+
 def signal(db,asset):
     sym=normalize(asset)
     try: snap=snapshot(db,sym)
     except LiveDataError as exc: return {"status":"error","asset":sym,"display":ASSETS[sym]["display"],"message":"LIVE DATA ERROR — no live price shown.","error":str(exc)}
     c=snap["candles"]; ind=build(c); smc2=smc2_analysis(sym,c,ind,ASSETS); weights=get_weights(db,sym); det=detect(c,ind,weights); alerts=det["alerts"]; active=list({a["strategy"] for a in alerts})
-    ad=performance_for_active(db,sym,active); ses=session_info(); d=decide(det["master"],det["execution"],ses,ad,ind,sym); pl=plan(sym,d,ind); hm=level_memory(db,sym,pl.get("primary_level"),d["bias"]); cr=close_rules(sym,d["bias"],ind,pl); ba=build_best_action(sym,d,pl,hm,ad,ind,det)
+    ad=performance_for_active(db,sym,active); ses=session_info(); d=decide(det["master"],det["execution"],ses,ad,ind,sym); pl=plan(sym,d,ind); hm=level_memory(db,sym,pl.get("primary_level"),d["bias"]); cr=close_rules(sym,d["bias"],ind,pl)
+    fd=final_decision_gate(d,ad,hm if "hm" in locals() else None,smc2 if "smc2" in locals() else None)
+    tf=forecast(sym,c,snap["price"],fd["final_action"],pl,ind); ba=build_best_action(sym,d,pl,hm,ad,ind,det)
     adjusted_action, smc_note, smc_bonus = smc2_final_adjustment(d["bias"], d["action"], smc2, d["probabilities"]["up"], d["probabilities"]["down"])
     d["action"] = adjusted_action
     d["confidence"] = max(20, min(99, d["confidence"] + smc_bonus))
     warning=f"{d['action']}: exact entry active." if d["active"] else f"{d['action']}: {d.get('decision_reason','wait for exact trigger')}"
-    result={"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"smc2":smc2,"smc_note":smc_note,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"best_action":ba,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"smc2_direction":smc2.get("direction"),"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V15 uses SCALP READY, clear pullback/breakout triggers, adaptive backtest weights, and reward/risk filtering."}
+    result={"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"final_decision":fd,"time_forecast":tf,"smc2":smc2,"smc_note":smc_note,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"best_action":ba,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"smc2_direction":smc2.get("direction"),"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V20 uses a final decision gate plus time forecast so probability does not become a trade by itself."}
     return apply_signal_lock(db,result)
