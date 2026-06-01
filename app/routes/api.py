@@ -8,10 +8,10 @@ from app.services.market import active_assets, ASSETS, download_history
 from app.services.engine import signal
 from app.services.backtest import run_backtest
 from app.services.adaptive import recalc_weights
-router=APIRouter(prefix="/api/v14",tags=["v14"])
+router=APIRouter(prefix="/api/v15",tags=["v14"])
 @router.get("/health")
 def health(db:Session=Depends(get_db)):
-    return {"status":"ok","version":"14.0.0","provider":"TwelveData + Precision Trigger Pro","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
+    return {"status":"ok","version":"15.0.0","provider":"TwelveData + Practical Precision","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
 @router.get("/signals")
 def signals(db:Session=Depends(get_db)): return {"signals":[signal(db,a) for a in active_assets()]}
 @router.get("/signal/{asset}")

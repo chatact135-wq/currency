@@ -14,4 +14,8 @@ class Settings:
     MIN_ADAPTIVE_TRADES=int(os.getenv("MIN_ADAPTIVE_TRADES","40"))
     MIN_ENTRY_PIPS=float(os.getenv("MIN_ENTRY_PIPS","3"))
     MAX_ENTRY_PIPS=float(os.getenv("MAX_ENTRY_PIPS","8"))
+    SCALP_READY_SCORE=float(os.getenv("SCALP_READY_SCORE","54"))
+    ACTIVE_PRECISION_SCORE=float(os.getenv("ACTIVE_PRECISION_SCORE","68"))
+    MIN_ACTIVE_RR=float(os.getenv("MIN_ACTIVE_RR","1.20"))
+    MIN_SCALP_READY_RR=float(os.getenv("MIN_SCALP_READY_RR","0.95"))
 settings=Settings()
