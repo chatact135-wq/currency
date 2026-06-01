@@ -18,4 +18,6 @@ class Settings:
     ACTIVE_PRECISION_SCORE=float(os.getenv("ACTIVE_PRECISION_SCORE","68"))
     MIN_ACTIVE_RR=float(os.getenv("MIN_ACTIVE_RR","1.20"))
     MIN_SCALP_READY_RR=float(os.getenv("MIN_SCALP_READY_RR","0.95"))
+    BACKFILL_MONTHS=int(os.getenv("BACKFILL_MONTHS","6"))
+    BACKFILL_CHUNK_DAYS=int(os.getenv("BACKFILL_CHUNK_DAYS","21"))
 settings=Settings()

@@ -43,3 +43,53 @@ def snapshot(db,asset):
 def download_history(db,asset):
     live=fetch_twelve(asset,settings.HISTORY_CANDLE_LIMIT); ins=store_candles(db,live["asset"],live["candles"])
     return {"asset":live["asset"],"downloaded":len(live["candles"]),"inserted_or_new":ins,"source_time":live["source_time"]}
+
+
+from datetime import datetime, timedelta
+
+def fetch_twelve_range(asset, start_date, end_date, interval="5min", outputsize=5000):
+    sym = normalize(asset)
+    if not settings.TWELVEDATA_API_KEY:
+        raise LiveDataError("TWELVEDATA_API_KEY missing.")
+    try:
+        r = requests.get("https://api.twelvedata.com/time_series", params={
+            "symbol": ASSETS[sym]["twelve"],
+            "interval": interval,
+            "start_date": start_date.strftime("%Y-%m-%d %H:%M:%S"),
+            "end_date": end_date.strftime("%Y-%m-%d %H:%M:%S"),
+            "outputsize": outputsize,
+            "apikey": settings.TWELVEDATA_API_KEY,
+            "format": "JSON"
+        }, timeout=20)
+        data = r.json()
+    except Exception as e:
+        raise LiveDataError(f"Twelve Data range fetch failed: {e}")
+    if data.get("status") == "error":
+        raise LiveDataError(data.get("message", "Twelve Data API error"))
+    vals = data.get("values") or []
+    if not vals:
+        return {"asset": sym, "candles": [], "message": "No candles returned for this chunk."}
+    out = [{"datetime": str(x.get("datetime","")), "open": float(x["open"]), "high": float(x["high"]), "low": float(x["low"]), "close": float(x["close"])} for x in reversed(vals)]
+    return {"asset": sym, "candles": out, "message": "ok"}
+
+def backfill_months(db, asset, months=6):
+    sym = normalize(asset)
+    end = datetime.utcnow()
+    start = end - timedelta(days=30 * months)
+    chunk_days = settings.BACKFILL_CHUNK_DAYS
+    cur = start
+    chunks = []
+    total = 0
+    errors = []
+    while cur < end:
+        nxt = min(cur + timedelta(days=chunk_days), end)
+        try:
+            res = fetch_twelve_range(sym, cur, nxt)
+            inserted = store_candles(db, sym, res["candles"])
+            total += len(res["candles"])
+            chunks.append({"from": cur.strftime("%Y-%m-%d"), "to": nxt.strftime("%Y-%m-%d"), "candles": len(res["candles"]), "inserted_or_new": inserted})
+        except Exception as exc:
+            errors.append({"from": cur.strftime("%Y-%m-%d"), "to": nxt.strftime("%Y-%m-%d"), "error": str(exc)})
+        cur = nxt
+    return {"asset": sym, "months_requested": months, "candles_downloaded": total, "chunks": chunks, "errors": errors}
+

@@ -4,6 +4,7 @@ from app.services.indicators import build
 from app.services.core import detect
 from app.services.adaptive import get_weights, performance_for_active
 from app.services.session import info as session_info
+from app.services.history_memory import level_memory
 def rp(sym,v):
     pip=ASSETS[sym]["pip"]
     if pip>=0.1: return round(float(v),2)
@@ -122,35 +123,109 @@ def decide(m,e,ses,ad,ind,sym):
     conflict = "Aligned: master bias and execution agree." if aligned else "Not aligned: opposite signals are pullback/risk, not automatic reversal."
     return {"action":action,"stage":stage,"active":active,"ready":ready,"bias":direction,"confidence":score,"grade":grade,"risk_level":risk,"probabilities":{"up":up,"sideways":side,"down":down},"conflict_interpretation":conflict,"decision_reason":reason,"rr":rr}
 
-def plan(sym,d,ind):
-    direction=d["bias"]; price=ind["price"]; pip=ASSETS[sym]["pip"]; atr=ind["atr"]
+
+def micro_trigger_distance(sym):
+    pip = ASSETS[sym]["pip"]
+    if pip == 0.0001:
+        return {"near": 2 * pip, "far": 6 * pip}
+    if pip >= 0.10:
+        return {"near": 0.8, "far": 2.8}
+    return {"near": 0.03, "far": 0.10}
+
+def plan(sym, d, ind):
+    direction = d["bias"]
+    price = ind["price"]
+    pip = ASSETS[sym]["pip"]
+    atr = ind["atr"]
+    md = micro_trigger_distance(sym)
+
     if direction == "BUY":
-        pullback=min(price, ind["support_soft"]); breakout=max(price, ind["resistance_soft"])
-        setup=f"{rp(sym,pullback)} → {rp(sym,price)}"
-        trigger_text=f"Pullback reaction near {rp(sym,pullback)} OR breakout above {rp(sym,breakout)}"
+        pullback_high = price - md["near"]
+        pullback_low = price - md["far"]
+        breakout = price + md["near"]
+        setup = f"{rp(sym, pullback_low)} → {rp(sym, pullback_high)}"
+        trigger_text = f"Micro pullback zone {rp(sym, pullback_low)} → {rp(sym, pullback_high)} OR breakout above {rp(sym, breakout)}"
+        primary_level = breakout
     elif direction == "SELL":
-        pullback=max(price, ind["resistance_soft"]); breakdown=min(price, ind["support_soft"])
-        setup=f"{rp(sym,pullback)} → {rp(sym,price)}"
-        trigger_text=f"Pullback rejection near {rp(sym,pullback)} OR breakdown below {rp(sym,breakdown)}"
+        pullback_low = price + md["near"]
+        pullback_high = price + md["far"]
+        breakdown = price - md["near"]
+        setup = f"{rp(sym, pullback_high)} → {rp(sym, pullback_low)}"
+        trigger_text = f"Micro pullback zone {rp(sym, pullback_low)} → {rp(sym, pullback_high)} OR breakdown below {rp(sym, breakdown)}"
+        primary_level = breakdown
     else:
-        setup="No valid setup zone"; trigger_text="No trigger"
+        setup = "No valid setup zone"
+        trigger_text = "No trigger"
+        primary_level = None
+
     if not d["active"]:
-        return {"has_exact_entry":False,"setup_zone":setup,"trigger_level":trigger_text,"exact_entry":"No exact entry until ACTIVE SCALP confirms.","after_tp1":"No trade management until exact entry is active.","ready_note":"SCALP READY means direction is good, but exact entry still needs activation." if d.get("ready") else ""}
-    if pip==0.0001:
-        width=max(settings.MIN_ENTRY_PIPS*pip,min(settings.MAX_ENTRY_PIPS*pip,atr*0.12))
-    elif pip==0.10:
-        width=max(0.8,min(3.5,atr*0.16))
+        return {
+            "has_exact_entry": False,
+            "setup_zone": setup,
+            "trigger_level": trigger_text,
+            "primary_level": primary_level,
+            "exact_entry": "No exact entry until ACTIVE SCALP confirms.",
+            "after_tp1": "No trade management until exact entry is active.",
+            "ready_note": "SCALP READY means direction is good, but exact entry still needs activation." if d.get("ready") else ""
+        }
+
+    # active entry stays tight around live price
+    if pip == 0.0001:
+        width = max(3 * pip, min(6 * pip, atr * 0.10))
+    elif pip >= 0.10:
+        width = max(0.8, min(2.6, atr * 0.14))
     else:
-        width=max(0.04,min(0.18,atr*0.16))
-    if direction=="BUY":
-        low=price-width*0.25; high=price+width*0.75; low,high=min(low,high),max(low,high)
-        sl=low-max(width*1.4,atr*0.28); tp1=high+max(width*1.1,atr*0.32); tp2=high+max(width*2,atr*0.58); full=high+max(width*2.8,atr*0.78)
-        return {"has_exact_entry":True,"direction":"ascending","setup_zone":setup,"trigger_level":trigger_text,"exact_entry":f"{rp(sym,low)} → {rp(sym,high)}","entry_pips":pips(sym,low,high),"stop_loss":rp(sym,sl),"invalidation":rp(sym,sl),"tp1_partial_close":rp(sym,tp1),"tp2":rp(sym,tp2),"full_close":rp(sym,full),"after_tp1":"Close 50% and move SL to breakeven."}
-    if direction=="SELL":
-        high=price+width*0.25; low=price-width*0.75; high,low=max(high,low),min(high,low)
-        sl=high+max(width*1.4,atr*0.28); tp1=low-max(width*1.1,atr*0.32); tp2=low-max(width*2,atr*0.58); full=low-max(width*2.8,atr*0.78)
-        return {"has_exact_entry":True,"direction":"descending","setup_zone":setup,"trigger_level":trigger_text,"exact_entry":f"{rp(sym,high)} → {rp(sym,low)}","entry_pips":pips(sym,high,low),"stop_loss":rp(sym,sl),"invalidation":rp(sym,sl),"tp1_partial_close":rp(sym,tp1),"tp2":rp(sym,tp2),"full_close":rp(sym,full),"after_tp1":"Close 50% and move SL to breakeven."}
-    return {"has_exact_entry":False,"setup_zone":setup,"trigger_level":trigger_text,"exact_entry":"No valid direction.","after_tp1":"Not active."}
+        width = max(0.03, min(0.10, atr * 0.14))
+
+    if direction == "BUY":
+        low = price - width * 0.25
+        high = price + width * 0.75
+        low, high = min(low, high), max(low, high)
+        sl = low - max(width * 1.25, atr * 0.24)
+        tp1 = high + max(width * 1.05, atr * 0.28)
+        tp2 = high + max(width * 1.8, atr * 0.48)
+        full = high + max(width * 2.5, atr * 0.68)
+        return {
+            "has_exact_entry": True,
+            "direction": "ascending",
+            "setup_zone": setup,
+            "trigger_level": trigger_text,
+            "primary_level": primary_level,
+            "exact_entry": f"{rp(sym, low)} → {rp(sym, high)}",
+            "entry_pips": pips(sym, low, high),
+            "stop_loss": rp(sym, sl),
+            "invalidation": rp(sym, sl),
+            "tp1_partial_close": rp(sym, tp1),
+            "tp2": rp(sym, tp2),
+            "full_close": rp(sym, full),
+            "after_tp1": "Close 50% and move SL to breakeven."
+        }
+
+    if direction == "SELL":
+        high = price + width * 0.25
+        low = price - width * 0.75
+        high, low = max(high, low), min(high, low)
+        sl = high + max(width * 1.25, atr * 0.24)
+        tp1 = low - max(width * 1.05, atr * 0.28)
+        tp2 = low - max(width * 1.8, atr * 0.48)
+        full = low - max(width * 2.5, atr * 0.68)
+        return {
+            "has_exact_entry": True,
+            "direction": "descending",
+            "setup_zone": setup,
+            "trigger_level": trigger_text,
+            "primary_level": primary_level,
+            "exact_entry": f"{rp(sym, high)} → {rp(sym, low)}",
+            "entry_pips": pips(sym, high, low),
+            "stop_loss": rp(sym, sl),
+            "invalidation": rp(sym, sl),
+            "tp1_partial_close": rp(sym, tp1),
+            "tp2": rp(sym, tp2),
+            "full_close": rp(sym, full),
+            "after_tp1": "Close 50% and move SL to breakeven."
+        }
+
+    return {"has_exact_entry": False, "setup_zone": setup, "trigger_level": trigger_text, "primary_level": primary_level, "exact_entry": "No valid direction.", "after_tp1": "Not active."}
 
 def close_rules(sym,direction,ind,pl):
     if not pl.get("has_exact_entry"):
@@ -169,6 +244,6 @@ def signal(db,asset):
     try: snap=snapshot(db,sym)
     except LiveDataError as exc: return {"status":"error","asset":sym,"display":ASSETS[sym]["display"],"message":"LIVE DATA ERROR — no live price shown.","error":str(exc)}
     c=snap["candles"]; ind=build(c); weights=get_weights(db,sym); det=detect(c,ind,weights); alerts=det["alerts"]; active=list({a["strategy"] for a in alerts})
-    ad=performance_for_active(db,sym,active); ses=session_info(); d=decide(det["master"],det["execution"],ses,ad,ind,sym); pl=plan(sym,d,ind); cr=close_rules(sym,d["bias"],ind,pl)
+    ad=performance_for_active(db,sym,active); ses=session_info(); d=decide(det["master"],det["execution"],ses,ad,ind,sym); pl=plan(sym,d,ind); hm=level_memory(db,sym,pl.get("primary_level"),d["bias"]); cr=close_rules(sym,d["bias"],ind,pl)
     warning=f"{d['action']}: exact entry active." if d["active"] else f"{d['action']}: {d.get('decision_reason','wait for exact trigger')}"
-    return {"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V15 uses SCALP READY, clear pullback/breakout triggers, adaptive backtest weights, and reward/risk filtering."}
+    return {"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V15 uses SCALP READY, clear pullback/breakout triggers, adaptive backtest weights, and reward/risk filtering."}

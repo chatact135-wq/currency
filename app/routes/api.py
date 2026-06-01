@@ -4,14 +4,14 @@ import json
 from app.database import get_db
 from app.models import SignalLog, MarketCandle, BacktestTrade, AdaptiveWeight
 from app.config import settings
-from app.services.market import active_assets, ASSETS, download_history
+from app.services.market import active_assets, ASSETS, download_history, backfill_months
 from app.services.engine import signal
 from app.services.backtest import run_backtest
 from app.services.adaptive import recalc_weights
-router=APIRouter(prefix="/api/v15",tags=["v14"])
+router=APIRouter(prefix="/api/v16",tags=["v14"])
 @router.get("/health")
 def health(db:Session=Depends(get_db)):
-    return {"status":"ok","version":"15.0.0","provider":"TwelveData + Practical Precision","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
+    return {"status":"ok","version":"16.0.0","provider":"TwelveData + Historical Micro Trigger","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
 @router.get("/signals")
 def signals(db:Session=Depends(get_db)): return {"signals":[signal(db,a) for a in active_assets()]}
 @router.get("/signal/{asset}")
@@ -29,6 +29,17 @@ def admin_download_history(db:Session=Depends(get_db)):
         try: out.append(download_history(db,a))
         except Exception as exc: out.append({"asset":a,"error":str(exc)})
     return {"results":out}
+
+@router.get("/admin/backfill-six-months")
+def admin_backfill_six_months(db:Session=Depends(get_db)):
+    out=[]
+    for a in active_assets():
+        try:
+            out.append(backfill_months(db,a,settings.BACKFILL_MONTHS))
+        except Exception as exc:
+            out.append({"asset":a,"error":str(exc)})
+    return {"results":out}
+
 @router.get("/admin/run-backtest")
 def admin_backtest(db:Session=Depends(get_db)):
     out=[]
