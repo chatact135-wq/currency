@@ -8,10 +8,10 @@ from app.services.market import active_assets, ASSETS, download_history, backfil
 from app.services.engine import signal
 from app.services.backtest import run_backtest
 from app.services.adaptive import recalc_weights
-router=APIRouter(prefix="/api/v16",tags=["v14"])
+router=APIRouter(prefix="/api/v17",tags=["v14"])
 @router.get("/health")
 def health(db:Session=Depends(get_db)):
-    return {"status":"ok","version":"16.0.0","provider":"TwelveData + Historical Micro Trigger","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
+    return {"status":"ok","version":"17.0.0","provider":"TwelveData + Decision Executor","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
 @router.get("/signals")
 def signals(db:Session=Depends(get_db)): return {"signals":[signal(db,a) for a in active_assets()]}
 @router.get("/signal/{asset}")
@@ -59,5 +59,15 @@ def ml_perf(db:Session=Depends(get_db)):
         rows=db.query(BacktestTrade).filter(BacktestTrade.asset==a).all(); wins=sum(1 for x in rows if x.outcome=="WIN"); avg=sum(float(x.r_multiple or 0) for x in rows)/len(rows) if rows else 0
         out[a]={"trades":len(rows),"wins":wins,"win_rate":round(wins/len(rows)*100,1) if rows else 0,"avg_r":round(avg,2)}
     return out
+
+@router.get("/best-action")
+def best_action(db:Session=Depends(get_db)):
+    sigs=[signal(db,a) for a in active_assets()]
+    live=[s for s in sigs if s.get("status")=="live"]
+    if not live:
+        return {"status":"no_live_signals","signals":sigs}
+    ranked=sorted(live,key=lambda s:(s.get("best_action") or {}).get("score",0),reverse=True)
+    return {"status":"ok","best":ranked[0],"ranking":[{"asset":s.get("asset"),"action":(s.get("best_action") or {}).get("label"),"score":(s.get("best_action") or {}).get("score"),"instruction":(s.get("best_action") or {}).get("instruction")} for s in ranked]}
+
 @router.get("/assets")
 def assets(): return {"active":active_assets(),"supported":ASSETS}

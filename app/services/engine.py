@@ -239,11 +239,132 @@ def close_rules(sym,direction,ind,pl):
         emergency="No active direction."; trail="Not active."
     return {"close_status":"Active management","partial_close":f"Close 50% at TP1: {pl.get('tp1_partial_close')}","full_close":f"Full close target: {pl.get('full_close')}","emergency_close":emergency,"trailing_stop":trail}
 
+
+def historical_ok(hm):
+    if not hm or hm.get("success_rate") is None:
+        return True
+    return hm.get("success_rate", 0) >= 42
+
+def historical_strong(hm):
+    return bool(hm and hm.get("success_rate") is not None and hm.get("success_rate", 0) >= 55)
+
+def direction_probability(d):
+    if d.get("bias") == "BUY":
+        return d["probabilities"].get("up", 0)
+    if d.get("bias") == "SELL":
+        return d["probabilities"].get("down", 0)
+    return 0
+
+def pretrade_levels(sym, direction, price, ind):
+    pip = ASSETS[sym]["pip"]
+    atr = ind["atr"]
+    if pip == 0.0001:
+        entry_width = max(3*pip, min(6*pip, atr*0.10))
+    elif pip >= 0.10:
+        entry_width = max(0.8, min(2.6, atr*0.14))
+    else:
+        entry_width = max(0.03, min(0.10, atr*0.14))
+    if direction == "BUY":
+        entry_low = price - entry_width*0.25
+        entry_high = price + entry_width*0.75
+        sl = entry_low - max(entry_width*1.25, atr*0.24)
+        tp1 = entry_high + max(entry_width*1.05, atr*0.28)
+        tp2 = entry_high + max(entry_width*1.8, atr*0.48)
+        full = entry_high + max(entry_width*2.5, atr*0.68)
+        return {"entry": f"{rp(sym, entry_low)} → {rp(sym, entry_high)}", "stop": rp(sym, sl), "tp1": rp(sym, tp1), "tp2": rp(sym, tp2), "full": rp(sym, full)}
+    if direction == "SELL":
+        entry_high = price + entry_width*0.25
+        entry_low = price - entry_width*0.75
+        sl = entry_high + max(entry_width*1.25, atr*0.24)
+        tp1 = entry_low - max(entry_width*1.05, atr*0.28)
+        tp2 = entry_low - max(entry_width*1.8, atr*0.48)
+        full = entry_low - max(entry_width*2.5, atr*0.68)
+        return {"entry": f"{rp(sym, entry_high)} → {rp(sym, entry_low)}", "stop": rp(sym, sl), "tp1": rp(sym, tp1), "tp2": rp(sym, tp2), "full": rp(sym, full)}
+    return {"entry":"-", "stop":"-", "tp1":"-", "tp2":"-", "full":"-"}
+
+def build_best_action(sym, d, pl, hm, ad, ind, det):
+    direction = d.get("bias")
+    prob = direction_probability(d)
+    rr = (d.get("rr") or {}).get("rr", 0)
+    aligned = d.get("conflict_interpretation", "").startswith("Aligned")
+    hist_ok = historical_ok(hm)
+    hist_strong = historical_strong(hm)
+    adaptive_prob = ad.get("probability")
+    adaptive_ok = adaptive_prob is None or adaptive_prob >= 52
+    confidence = d.get("confidence", 0)
+    levels = pretrade_levels(sym, direction, ind["price"], ind)
+
+    # Practical executor score. This is not a guarantee; it ranks the current opportunity.
+    score = 0
+    score += min(30, confidence * 0.30)
+    score += 18 if aligned else 0
+    score += 15 if prob >= 60 else 8 if prob >= 52 else 0
+    score += 12 if rr >= 1.2 else 6 if rr >= 0.9 else 0
+    score += 12 if hist_strong else 6 if hist_ok else -10
+    score += 10 if adaptive_prob is None else 10 if adaptive_prob >= 58 else 5 if adaptive_prob >= 52 else -8
+    score = round(max(0, min(100, score)), 1)
+
+    if direction not in ["BUY", "SELL"]:
+        label = "NO TRADE"
+        mode = "WAIT"
+        instruction = "Do nothing. No clear direction."
+    elif d.get("active") and score >= 70:
+        label = f"EXECUTE {direction}"
+        mode = "EXECUTE"
+        instruction = f"{direction} is active. Use exact entry {levels['entry']}. Stop {levels['stop']}. TP1 {levels['tp1']}."
+    elif aligned and score >= 58 and hist_ok and adaptive_ok:
+        label = f"CONDITIONAL {direction}"
+        mode = "CONDITIONAL"
+        instruction = f"Prepare {direction}, but only enter if trigger activates. Entry {levels['entry']}. Stop {levels['stop']}. TP1 {levels['tp1']}."
+    elif d.get("stage") in ["SETUP READY", "SCALP READY", "PRECISION WATCH"] and score >= 48:
+        label = f"WATCH {direction}"
+        mode = "WATCH"
+        instruction = f"Direction is {direction}, but confirmation is not enough. Wait for trigger: {pl.get('trigger_level','-')}"
+    else:
+        label = "NO TRADE"
+        mode = "WAIT"
+        instruction = "Do not enter now. Conditions are not strong enough."
+
+    if direction == "BUY":
+        trigger = pl.get("trigger_level", "Buy only after pullback reaction or breakout activation.")
+        cancel = f"Cancel BUY if price closes below stop/invalidation {levels['stop']} or opposite SELL structure appears."
+    elif direction == "SELL":
+        trigger = pl.get("trigger_level", "Sell only after pullback rejection or breakdown activation.")
+        cancel = f"Cancel SELL if price closes above stop/invalidation {levels['stop']} or opposite BUY structure appears."
+    else:
+        trigger = "No trigger."
+        cancel = "No trade."
+
+    return {
+        "label": label,
+        "mode": mode,
+        "score": score,
+        "direction": direction,
+        "probability_used": prob,
+        "reward_risk": rr,
+        "trigger": trigger,
+        "instruction": instruction,
+        "entry": levels["entry"],
+        "stop": levels["stop"],
+        "tp1": levels["tp1"],
+        "tp2": levels["tp2"],
+        "full_close": levels["full"],
+        "cancel": cancel,
+        "why": {
+            "aligned": aligned,
+            "history_ok": hist_ok,
+            "history_success": hm.get("success_rate") if hm else None,
+            "adaptive_probability": adaptive_prob,
+            "confidence": confidence,
+            "probability": prob
+        }
+    }
+
 def signal(db,asset):
     sym=normalize(asset)
     try: snap=snapshot(db,sym)
     except LiveDataError as exc: return {"status":"error","asset":sym,"display":ASSETS[sym]["display"],"message":"LIVE DATA ERROR — no live price shown.","error":str(exc)}
     c=snap["candles"]; ind=build(c); weights=get_weights(db,sym); det=detect(c,ind,weights); alerts=det["alerts"]; active=list({a["strategy"] for a in alerts})
-    ad=performance_for_active(db,sym,active); ses=session_info(); d=decide(det["master"],det["execution"],ses,ad,ind,sym); pl=plan(sym,d,ind); hm=level_memory(db,sym,pl.get("primary_level"),d["bias"]); cr=close_rules(sym,d["bias"],ind,pl)
+    ad=performance_for_active(db,sym,active); ses=session_info(); d=decide(det["master"],det["execution"],ses,ad,ind,sym); pl=plan(sym,d,ind); hm=level_memory(db,sym,pl.get("primary_level"),d["bias"]); cr=close_rules(sym,d["bias"],ind,pl); ba=build_best_action(sym,d,pl,hm,ad,ind,det)
     warning=f"{d['action']}: exact entry active." if d["active"] else f"{d['action']}: {d.get('decision_reason','wait for exact trigger')}"
-    return {"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V15 uses SCALP READY, clear pullback/breakout triggers, adaptive backtest weights, and reward/risk filtering."}
+    return {"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"best_action":ba,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V15 uses SCALP READY, clear pullback/breakout triggers, adaptive backtest weights, and reward/risk filtering."}
