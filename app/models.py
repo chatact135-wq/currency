@@ -36,3 +36,18 @@ class SignalLog(Base):
     entry_display=Column(String(120)); stop_loss=Column(Float); tp1=Column(Float); tp2=Column(Float); full_close=Column(Float)
     setup_score=Column(Float); trigger_score=Column(Float); features_json=Column(Text); plan_json=Column(Text); alerts_json=Column(Text)
     created_at=Column(DateTime,default=lambda:datetime.now(timezone.utc),index=True)
+
+
+class TradeState(Base):
+    __tablename__ = "v19_trade_states"
+    id = Column(Integer, primary_key=True, index=True)
+    asset = Column(String(30), index=True, unique=True)
+    direction = Column(String(10))
+    status = Column(String(40), default="NONE")
+    action = Column(String(120))
+    entry_permission = Column(String(40), default="NO_ENTRY")
+    locked_price = Column(Float, nullable=True)
+    invalidation = Column(Float, nullable=True)
+    confidence = Column(Float, default=0)
+    reason = Column(Text)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
