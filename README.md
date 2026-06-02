@@ -1,18 +1,19 @@
-# MarketMind AI V26 — News Actual vs Forecast
+# MarketMind AI V27 — Regime Guard + Trigger State
 
 Adds:
-- Actual / Forecast / Previous in news countdown
-- Surprise direction
-- Currency bias
-- Expected effect for EUR/USD, GBP/USD, XAU/USD
-- Dashboard display for news numbers
+- Trigger state:
+  NOT_REACHED, BROKEN_WAIT_HOLD, ACTIVE, TOO_LATE_DO_NOT_CHASE, FAILED_CANCEL
+- Market regime guard:
+  NEWS_WAIT, POST_NEWS_IMPULSE, DATA_STALE, LOW_LIQUIDITY, LIQUIDITY_SWEEP_RISK, VOLATILITY_SPIKE
+- No-chase logic
+- Blocks entries during dangerous regimes
 
-Important:
-This requires FMP_API_KEY for real economic calendar values.
-Without FMP_API_KEY, the app only shows built-in risk windows with no actual/forecast.
+Note:
+Real spread/slippage/broker-delay detection needs broker bid/ask feed.
+Without broker feed, V27 estimates risk from live cache, candles, wicks, volatility, and news mode.
 
-After deploy:
-- /api/v26/news
-- /api/v26/price-check
-- /api/v26/market-map
+Links:
+- /api/v27/price-check
+- /api/v27/market-map
+- /api/v27/signals
 - /dashboard
