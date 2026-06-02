@@ -9,10 +9,10 @@ from app.services.engine import signal
 from app.services.news_engine import news_state
 from app.services.backtest import run_backtest
 from app.services.adaptive import recalc_weights
-router=APIRouter(prefix="/api/v23",tags=["v14"])
+router=APIRouter(prefix="/api/v24",tags=["v14"])
 @router.get("/health")
 def health(db:Session=Depends(get_db)):
-    return {"status":"ok","version":"23.0.0","provider":"TwelveData + Live Price Guard","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
+    return {"status":"ok","version":"24.0.0","provider":"TwelveData + Simple Trade Plan","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
 @router.get("/signals")
 def signals(db:Session=Depends(get_db)): return {"signals":[signal(db,a) for a in active_assets()]}
 @router.get("/signal/{asset}")
