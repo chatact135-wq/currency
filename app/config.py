@@ -23,4 +23,7 @@ class Settings:
     FMP_API_KEY=os.getenv("FMP_API_KEY","")
     NEWS_PRE_WINDOW_MINUTES=int(os.getenv("NEWS_PRE_WINDOW_MINUTES","15"))
     NEWS_POST_WINDOW_MINUTES=int(os.getenv("NEWS_POST_WINDOW_MINUTES","15"))
+    LIVE_PRICE_CACHE_SECONDS=int(os.getenv("LIVE_PRICE_CACHE_SECONDS","8"))
+    MAX_LIVE_PRICE_AGE_SECONDS=int(os.getenv("MAX_LIVE_PRICE_AGE_SECONDS","20"))
+    MAX_CANDLE_CACHE_SECONDS=int(os.getenv("MAX_CANDLE_CACHE_SECONDS","180"))
 settings=Settings()

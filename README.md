@@ -1,12 +1,10 @@
-# MarketMind AI V22 — Market Map Switch Engine
+# MarketMind AI V23 — Live Price Guard
 
-Adds always-on market map:
-- Current bias
-- Buy switch / Sell switch
-- Distance in pips
-- Aggressive entry / Safe entry
-- Stop loss / TP1 / TP2 / Full close
-- Flip rule from buy to sell or sell to buy
+Fixes stale price problem:
+- Dashboard uses TwelveData live price endpoint, not only M5 candle close
+- Candles remain for analysis/backtest
+- Blocks trade if live price/cache is stale
+- Shows live cache age, candle close, and difference
 
 Required:
 DATABASE_URL
@@ -15,10 +13,12 @@ TWELVEDATA_API_KEY
 
 Optional:
 FMP_API_KEY
+LIVE_PRICE_CACHE_SECONDS=8
+MAX_LIVE_PRICE_AGE_SECONDS=20
+MAX_CANDLE_CACHE_SECONDS=180
 
 After deploy:
-1. /api/v22/admin/backfill-six-months
-2. /api/v22/admin/run-backtest
-3. /api/v22/admin/recalculate-weights
-4. /api/v22/market-map
-5. /dashboard
+1. /api/v23/health
+2. /api/v23/price-check
+3. /dashboard
+4. /api/v23/market-map

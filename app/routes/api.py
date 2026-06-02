@@ -4,15 +4,15 @@ import json
 from app.database import get_db
 from app.models import SignalLog, MarketCandle, BacktestTrade, AdaptiveWeight
 from app.config import settings
-from app.services.market import active_assets, ASSETS, download_history, backfill_months
+from app.services.market import active_assets, ASSETS, download_history, fetch_twelve_live_price, backfill_months, fetch_twelve_live_price
 from app.services.engine import signal
 from app.services.news_engine import news_state
 from app.services.backtest import run_backtest
 from app.services.adaptive import recalc_weights
-router=APIRouter(prefix="/api/v22",tags=["v14"])
+router=APIRouter(prefix="/api/v23",tags=["v14"])
 @router.get("/health")
 def health(db:Session=Depends(get_db)):
-    return {"status":"ok","version":"22.0.0","provider":"TwelveData + Market Map Switch","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
+    return {"status":"ok","version":"23.0.0","provider":"TwelveData + Live Price Guard","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
 @router.get("/signals")
 def signals(db:Session=Depends(get_db)): return {"signals":[signal(db,a) for a in active_assets()]}
 @router.get("/signal/{asset}")
@@ -83,3 +83,15 @@ def news():
 def market_map(db:Session=Depends(get_db)):
     items=[signal(db,a) for a in active_assets()]
     return {"maps":[{"asset":x.get("asset"),"display":x.get("display"),"final_action":x.get("final_action"),"market_map":x.get("market_map")} for x in items]}
+
+
+@router.get("/price-check")
+def price_check():
+    out=[]
+    for a in active_assets():
+        try:
+            q=fetch_twelve_live_price(a)
+            out.append({"asset":a,"live_price":q["price"],"source":q["source"],"cache_age":q["cache_age"]})
+        except Exception as exc:
+            out.append({"asset":a,"error":str(exc)})
+    return {"prices":out}
