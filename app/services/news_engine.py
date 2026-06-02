@@ -80,6 +80,8 @@ def news_state(asset=None):
         if e.get("timestamp") is None: continue
         if asset and not relevant(asset,e.get("currency","")): continue
         e=dict(e); e["seconds_to_event"]=int(e["timestamp"]-n.timestamp()); e["countdown"]=text(e["seconds_to_event"])
+        e["surprise_analysis"]=surprise_analysis(e)
+        e["expected_effect"]=expected_effect(asset,e) if asset else "Open a pair card to see pair effect"
         filtered.append(e)
     filtered.sort(key=lambda x: abs(x["seconds_to_event"]))
     upcoming=[x for x in filtered if x["seconds_to_event"]>=-settings.NEWS_POST_WINDOW_MINUTES*60]
@@ -92,3 +94,82 @@ def news_state(asset=None):
         elif nxt["impact"] in ["HIGH","MEDIUM"] and sec<=3600:
             risk="MEDIUM"; mode="NEWS_SOON"; reason=f"{nxt['impact']} {nxt['currency']} event {nxt['countdown']}: {nxt['title']}"
     return {"source":source,"risk":risk,"mode":mode,"reason":reason,"next_event":nxt,"events":upcoming[:8],"pre_window_minutes":settings.NEWS_PRE_WINDOW_MINUTES,"post_window_minutes":settings.NEWS_POST_WINDOW_MINUTES}
+
+
+def numeric_value(v):
+    if v is None:
+        return None
+    try:
+        s = str(v).replace("%","").replace(",","").strip()
+        if s == "" or s.lower() in ["none","null","n/a"]:
+            return None
+        return float(s)
+    except Exception:
+        return None
+
+def surprise_analysis(event):
+    actual = numeric_value(event.get("actual"))
+    forecast = numeric_value(event.get("forecast"))
+    previous = numeric_value(event.get("previous"))
+    title = (event.get("title") or "").upper()
+    currency = (event.get("currency") or "").upper()
+
+    if actual is None or forecast is None:
+        return {
+            "has_numbers": False,
+            "surprise": "No actual/forecast yet",
+            "surprise_value": None,
+            "currency_bias": "UNKNOWN",
+            "reason": "Actual or forecast value is missing."
+        }
+
+    diff = actual - forecast
+    # Some events are inverted: lower is good for currency, e.g. unemployment/claims.
+    lower_is_good = any(k in title for k in ["UNEMPLOYMENT", "JOBLESS", "CLAIMS", "INITIAL CLAIMS"])
+    if abs(diff) < 0.000001:
+        bias = "NEUTRAL"
+        surprise = "Actual matched forecast"
+    else:
+        positive_for_currency = diff > 0
+        if lower_is_good:
+            positive_for_currency = diff < 0
+        bias = "BULLISH" if positive_for_currency else "BEARISH"
+        surprise = "Positive surprise" if positive_for_currency else "Negative surprise"
+
+    return {
+        "has_numbers": True,
+        "actual": actual,
+        "forecast": forecast,
+        "previous": previous,
+        "surprise": surprise,
+        "surprise_value": round(diff, 6),
+        "currency_bias": f"{currency} {bias}" if bias != "NEUTRAL" else f"{currency} NEUTRAL",
+        "reason": f"Actual {actual} vs forecast {forecast}."
+    }
+
+def expected_effect(asset, event):
+    asset = (asset or "").upper().replace("/", "")
+    currency = (event.get("currency") or "").upper()
+    bias = ((event.get("surprise_analysis") or {}).get("currency_bias") or "").upper()
+
+    if "UNKNOWN" in bias or "NEUTRAL" in bias:
+        return "No clear news direction yet."
+
+    bullish = "BULLISH" in bias
+    bearish = "BEARISH" in bias
+
+    if asset == "EURUSD":
+        if currency == "EUR":
+            return "EUR/USD UP pressure" if bullish else "EUR/USD DOWN pressure"
+        if currency == "USD":
+            return "EUR/USD DOWN pressure" if bullish else "EUR/USD UP pressure"
+    if asset == "GBPUSD":
+        if currency == "GBP":
+            return "GBP/USD UP pressure" if bullish else "GBP/USD DOWN pressure"
+        if currency == "USD":
+            return "GBP/USD DOWN pressure" if bullish else "GBP/USD UP pressure"
+    if asset in ["XAUUSD", "GOLD"]:
+        if currency == "USD":
+            return "Gold DOWN pressure" if bullish else "Gold UP pressure"
+    return "News effect depends on pair/currency."
+

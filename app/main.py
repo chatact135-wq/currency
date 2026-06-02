@@ -5,11 +5,11 @@ from app.models import Base
 from app.routes.api import router as api_router
 from app.routes.pages import router as pages_router
 Base.metadata.create_all(bind=engine)
-app=FastAPI(title="MarketMind AI V24 Simple Trade Plan",version="24.0.0")
+app=FastAPI(title="MarketMind AI V26 News Actual Forecast",version="26.0.0")
 app.include_router(api_router); app.include_router(pages_router)
 @app.get("/")
-def root(): return {"message":"MarketMind AI V24 Simple Trade Plan running","dashboard":"/dashboard","api":"/api/v24/signals"}
+def root(): return {"message":"MarketMind AI V26 News Actual Forecast running","dashboard":"/dashboard","api":"/api/v26/signals"}
 @app.get("/health")
-def health(): return {"status":"ok","version":"24.0.0"}
+def health(): return {"status":"ok","version":"26.0.0"}
 @app.get("/go")
 def go(): return RedirectResponse("/dashboard")
