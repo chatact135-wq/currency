@@ -1,5 +1,6 @@
 import requests
 from app.config import settings
+from app.services.usage_meter import track_refresh
 from app.models import MarketCandle
 from app.services import cache
 ASSETS={"EURUSD":{"display":"EUR/USD","twelve":"EUR/USD","pip":0.0001},"GBPUSD":{"display":"GBP/USD","twelve":"GBP/USD","pip":0.0001},"XAUUSD":{"display":"Gold / XAUUSD","twelve":"XAU/USD","pip":0.10},"WTI":{"display":"WTI Oil","twelve":"WTI/USD","pip":0.01}}
@@ -16,6 +17,7 @@ def fetch_twelve(asset, outputsize=120, interval="5min"):
     if c: return {**c,"source":"twelvedata-cached","cache_age":cache.age(key)}
     if not settings.TWELVEDATA_API_KEY: raise LiveDataError("TWELVEDATA_API_KEY missing.")
     try:
+        track_refresh("twelvedata_time_series", 1)
         r=requests.get("https://api.twelvedata.com/time_series",params={"symbol":ASSETS[sym]["twelve"],"interval":interval,"outputsize":outputsize,"apikey":settings.TWELVEDATA_API_KEY,"format":"JSON"},timeout=15)
         data=r.json()
     except Exception as e: raise LiveDataError(f"Twelve Data failed: {e}")
@@ -38,6 +40,7 @@ def fetch_twelve_live_price(asset):
     if not settings.TWELVEDATA_API_KEY:
         raise LiveDataError("TWELVEDATA_API_KEY missing.")
     try:
+        track_refresh("twelvedata_price", 1)
         r=requests.get("https://api.twelvedata.com/price",params={"symbol":ASSETS[sym]["twelve"],"apikey":settings.TWELVEDATA_API_KEY,"format":"JSON"},timeout=10)
         data=r.json()
     except Exception as e:
@@ -88,6 +91,7 @@ def fetch_twelve_range(asset, start_date, end_date, interval="5min", outputsize=
     if not settings.TWELVEDATA_API_KEY:
         raise LiveDataError("TWELVEDATA_API_KEY missing.")
     try:
+        track_refresh("twelvedata_time_series", 1)
         r = requests.get("https://api.twelvedata.com/time_series", params={
             "symbol": ASSETS[sym]["twelve"],
             "interval": interval,

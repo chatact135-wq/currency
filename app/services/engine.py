@@ -9,6 +9,7 @@ from app.services.signal_lock import apply_signal_lock
 from app.services.time_forecast import forecast
 from app.services.market_map import build_market_map
 from app.services.regime_guard import market_regime, trigger_state, apply_regime_to_permission
+from app.services.alert_engine import classify_fast_move, remember_alerts
 from app.services.freshness_guard import apply_freshness_guard
 from app.services.news_engine import news_state
 from app.services.history_memory import level_memory
@@ -472,7 +473,7 @@ def signal(db,asset):
     d["action"] = adjusted_action
     d["confidence"] = max(20, min(99, d["confidence"] + smc_bonus))
     warning=f"{d['action']}: exact entry active." if d["active"] else f"{d['action']}: {d.get('decision_reason','wait for exact trigger')}"
-    result={"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"data_fresh":snap.get("data_fresh"),"stale_reasons":snap.get("stale_reasons",[]),"live_price_cache_age":snap.get("live_price_cache_age"),"candle_close_price":rp(sym,snap.get("candle_close_price",snap["price"])),"price_difference_from_candle":rp(sym,snap.get("price_difference_from_candle",0)),"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"news":nw,"final_decision":fd,"time_forecast":tf,"smc2":smc2,"smc_note":smc_note,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"best_action":ba,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"smc2_direction":smc2.get("direction"),"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V27 adds trigger-state logic and market regime guard for news, fake breaks, liquidity sweeps, stale data and no-chase rules."}
+    result={"status":"live","asset":sym,"display":ASSETS[sym]["display"],"price":rp(sym,snap["price"]),"source":snap["source"],"source_time":snap["source_time"],"cache_age":snap["cache_age"],"stored_candles":snap["stored_candles"],"data_fresh":snap.get("data_fresh"),"stale_reasons":snap.get("stale_reasons",[]),"live_price_cache_age":snap.get("live_price_cache_age"),"candle_close_price":rp(sym,snap.get("candle_close_price",snap["price"])),"price_difference_from_candle":rp(sym,snap.get("price_difference_from_candle",0)),"final_action":d["action"],"stage":d["stage"],"master_bias":d["bias"],"confidence":d["confidence"],"grade":d["grade"],"risk_level":d["risk_level"],"probabilities":d["probabilities"],"adaptive":ad,"news":nw,"final_decision":fd,"time_forecast":tf,"smc2":smc2,"smc_note":smc_note,"conflict_interpretation":d["conflict_interpretation"],"warning":warning,"master_engine":det["master"],"execution_engine":det["execution"],"plan":pl,"best_action":ba,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"close_rules":cr,"decision_reason":d.get("decision_reason"),"reward_risk":d.get("rr"),"history_memory":hm,"timer_seconds":600 if d["active"] else 900,"indicators":{"trend":ind["trend"],"rsi":ind["rsi"],"momentum":round(ind["momentum"],6),"pressure":round(ind["pressure"],3),"atr":rp(sym,ind["atr"])},"profile":{"poc":rp(sym,ind["profile"]["poc"]),"val":rp(sym,ind["profile"]["val"]),"vah":rp(sym,ind["profile"]["vah"])},"alerts":alerts,"features":{"smc2_direction":smc2.get("direction"),"active_strategies":active,"setup_score":det["master"]["net"],"trigger_score":det["execution"]["net"]},"logic_note":"V28 adds alert engine and fast-move detector for fast buy/sell, retest and no-chase alerts."}
     result=apply_signal_lock(db,result)
     result["market_map"] = build_market_map(sym,c,ind,result)
     mm = result.get("market_map") or {}
@@ -481,5 +482,7 @@ def signal(db,asset):
     rg = market_regime(sym,c,result)
     ts = trigger_state(sym, result.get("price"), cs.get("bias"), tm.get("aggressive_entry"), tm.get("safe_entry"), tm.get("cancel_level"))
     result = apply_regime_to_permission(result, rg, ts)
+    fast_alerts = classify_fast_move(sym,c,result)
+    result["alerts"] = remember_alerts(sym, fast_alerts)
     result=apply_freshness_guard(result)
     return apply_news_gate(result,nw)

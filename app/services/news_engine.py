@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 import requests
 from app.config import settings
+from app.services.usage_meter import track_refresh
 
 WATCH_CURRENCIES=["USD","EUR","GBP"]
 IMPORTANT=["CPI","INFLATION","NONFARM","NFP","PAYROLL","UNEMPLOYMENT","INTEREST RATE","RATE DECISION","FOMC","FED","POWELL","GDP","RETAIL SALES","PMI","ISM","PCE","CLAIMS","BOE","ECB"]
@@ -48,6 +49,7 @@ def fetch_fmp():
     if not settings.FMP_API_KEY: return []
     n=now_utc()
     try:
+        track_refresh("fmp_economic_calendar", 1)
         resp=requests.get("https://financialmodelingprep.com/api/v3/economic_calendar",params={"from":(n-timedelta(hours=6)).strftime("%Y-%m-%d"),"to":(n+timedelta(days=2)).strftime("%Y-%m-%d"),"apikey":settings.FMP_API_KEY},timeout=12)
         data=resp.json()
     except Exception:
