@@ -5,11 +5,11 @@ from app.models import Base
 from app.routes.api import router as api_router
 from app.routes.pages import router as pages_router
 Base.metadata.create_all(bind=engine)
-app=FastAPI(title="MarketMind AI V36 Direction Lock",version="36.0.0")
+app=FastAPI(title="MarketMind AI V37 Strong Move TP Manager",version="37.0.0")
 app.include_router(api_router); app.include_router(pages_router)
 @app.get("/")
-def root(): return {"message":"MarketMind AI V36 Direction Lock running","dashboard":"/dashboard","api":"/api/v36/signals"}
+def root(): return {"message":"MarketMind AI V37 Strong Move TP Manager running","dashboard":"/dashboard","api":"/api/v37/signals"}
 @app.get("/health")
-def health(): return {"status":"ok","version":"36.0.0"}
+def health(): return {"status":"ok","version":"37.0.0"}
 @app.get("/go")
 def go(): return RedirectResponse("/dashboard")

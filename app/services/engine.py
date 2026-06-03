@@ -15,6 +15,7 @@ from app.services.signal_memory import apply_signal_memory
 from app.services.active_mode import apply_active_mode
 from app.services.simple_words import apply_simple_words
 from app.services.direction_lock import apply_direction_lock
+from app.services.strong_move import apply_strong_move
 from app.services.news_engine import news_state
 from app.services.history_memory import level_memory
 def rp(sym,v):
@@ -490,6 +491,7 @@ def signal(db,asset):
     result["alerts"] = remember_alerts(sym, fast_alerts)
     result = apply_signal_memory(db,result)
     result = apply_active_mode(result)
+    result = apply_strong_move(result,c)
     result = apply_direction_lock(result)
     result = apply_simple_words(result)
     result=apply_freshness_guard(result)
