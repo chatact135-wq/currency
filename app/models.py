@@ -51,3 +51,21 @@ class TradeState(Base):
     confidence = Column(Float, default=0)
     reason = Column(Text)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class SignalMemory(Base):
+    __tablename__ = "v31_signal_memory"
+    id = Column(Integer, primary_key=True, index=True)
+    asset = Column(String(30), index=True, unique=True)
+    direction = Column(String(10), index=True)
+    entry = Column(Float, nullable=True)
+    safe_entry = Column(Float, nullable=True)
+    cancel_level = Column(Float, nullable=True)
+    signal_key = Column(String(120), index=True)
+    status = Column(String(40), default="ACTIVE")
+    ttl_minutes = Column(Integer, default=20)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    expires_at = Column(DateTime, nullable=True)
+    last_seen_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    reason = Column(Text)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

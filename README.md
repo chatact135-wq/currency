@@ -1,11 +1,19 @@
-# MarketMind AI V30 — API Usage Meter
+# MarketMind AI V31 — Persistent Signal Expiry
 
-Adds API usage counting:
-- Calls used in current refresh
-- Estimated calls per minute/hour/day
-- Breakdown by provider/action
-- Dashboard usage panel
-- /api/v30/usage endpoint
+V31 fixes the expiry reset problem.
 
-Important:
-This is an internal estimate. Real provider billing can differ if provider counts retries/errors differently.
+Problem before:
+- Every API refresh recalculated the signal.
+- Expiry/timer could reset or disappear.
+
+V31 solution:
+- Signal creation time and expiry are stored in the database.
+- Refreshing /signals or the dashboard does NOT reset expiry.
+- Same asset + direction + close entry keeps the same expiry.
+- If the signal expires, it stays expired until the trigger/direction changes.
+- Dashboard shows persistent expiry state.
+
+Links:
+- /dashboard
+- /api/v31/signals
+- /api/v31/usage
