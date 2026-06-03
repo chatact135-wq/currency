@@ -4,17 +4,18 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 import json
 from app.database import get_db
-from app.models import SignalLog, MarketCandle, BacktestTrade, AdaptiveWeight, SignalMemory
+from app.models import SignalLog, MarketCandle, BacktestTrade, AdaptiveWeight
 from app.config import settings
 from app.services.market import active_assets, ASSETS, download_history, fetch_twelve_live_price, backfill_months, fetch_twelve_live_price
 from app.services.engine import signal
+from app.services.signal_memory import memory_report
 from app.services.news_engine import news_state
 from app.services.backtest import run_backtest
 from app.services.adaptive import recalc_weights
-router=APIRouter(prefix="/api/v31",tags=["v14"])
+router=APIRouter(prefix="/api/v31_1_1",tags=["v31_1"])
 @router.get("/health")
 def health(db:Session=Depends(get_db)):
-    return {"status":"ok","version":"31.0.0","provider":"TwelveData + Persistent Expiry","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
+    return {"status":"ok","version":"31.1.0","provider":"TwelveData + Persistent Expiry Fix","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
 @router.get("/signals")
 def signals(db:Session=Depends(get_db)):
     begin_refresh("signals")
@@ -116,8 +117,6 @@ def alerts():
 def usage(refresh_seconds:int=10):
     return report(refresh_seconds)
 
-
 @router.get("/signal-memory")
-def signal_memory(db:Session=Depends(get_db)):
-    rows=db.query(SignalMemory).all()
-    return {"signals":[{"asset":r.asset,"direction":r.direction,"entry":r.entry,"status":r.status,"created_at":r.created_at.isoformat() if r.created_at else None,"expires_at":r.expires_at.isoformat() if r.expires_at else None,"signal_key":r.signal_key} for r in rows]}
+def signal_memory():
+    return memory_report()

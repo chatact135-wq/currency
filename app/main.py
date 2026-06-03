@@ -5,11 +5,11 @@ from app.models import Base
 from app.routes.api import router as api_router
 from app.routes.pages import router as pages_router
 Base.metadata.create_all(bind=engine)
-app=FastAPI(title="MarketMind AI V31 Persistent Expiry",version="31.0.0")
+app=FastAPI(title="MarketMind AI V31.1.1 Persistent Expiry Fix Fix",version="31.1.0")
 app.include_router(api_router); app.include_router(pages_router)
 @app.get("/")
-def root(): return {"message":"MarketMind AI V31 Persistent Expiry running","dashboard":"/dashboard","api":"/api/v31/signals"}
+def root(): return {"message":"MarketMind AI V31.1.1 Persistent Expiry Fix Fix running","dashboard":"/dashboard","api":"/api/v31_1_1/signals"}
 @app.get("/health")
-def health(): return {"status":"ok","version":"31.0.0"}
+def health(): return {"status":"ok","version":"31.1.0"}
 @app.get("/go")
 def go(): return RedirectResponse("/dashboard")
