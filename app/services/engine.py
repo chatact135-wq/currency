@@ -12,6 +12,8 @@ from app.services.regime_guard import market_regime, trigger_state, apply_regime
 from app.services.alert_engine import classify_fast_move, remember_alerts
 from app.services.freshness_guard import apply_freshness_guard
 from app.services.signal_memory import apply_signal_memory
+from app.services.active_mode import apply_active_mode
+from app.services.simple_words import apply_simple_words
 from app.services.news_engine import news_state
 from app.services.history_memory import level_memory
 def rp(sym,v):
@@ -486,5 +488,7 @@ def signal(db,asset):
     fast_alerts = classify_fast_move(sym,c,result)
     result["alerts"] = remember_alerts(sym, fast_alerts)
     result = apply_signal_memory(db,result)
+    result = apply_active_mode(result)
+    result = apply_simple_words(result)
     result=apply_freshness_guard(result)
     return apply_news_gate(result,nw)
