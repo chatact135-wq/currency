@@ -41,6 +41,7 @@ def _status(now, expires_at):
     return "ACTIVE"
 
 def apply_signal_memory(db, result):
+    # Safe memory only. No new database table required.
     if result.get("status") != "live":
         return result
 
@@ -85,17 +86,16 @@ def apply_signal_memory(db, result):
             "expires_at": now + timedelta(minutes=ttl),
             "last_seen_at": now,
             "updated_at": now,
-            "reason": "New signal anchor created. Refresh will not reset expiry."
         }
         _MEMORY[sym] = mem
 
     seconds_left = int((mem["expires_at"] - now).total_seconds()) if mem.get("expires_at") else None
     if seconds_left is not None and seconds_left < 0:
         seconds_left = 0
-    expired = mem.get("status") == "EXPIRED"
+    expired = _status(now, mem.get("expires_at")) == "EXPIRED"
 
     result["signal_memory"] = {
-        "status": mem.get("status"),
+        "status": "EXPIRED" if expired else "ACTIVE",
         "direction": mem.get("direction"),
         "entry": mem.get("entry"),
         "safe_entry": mem.get("safe_entry"),
