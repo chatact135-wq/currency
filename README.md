@@ -1,23 +1,34 @@
-# MarketMind AI V37 — Strong Move Detector + TP Manager
+# MarketMind AI V38 — Simple Trader Mode
 
-V37 fixes the issue where strong moves down/up are not detected clearly.
+Goal:
+- One clear final command.
+- Less confusion.
+- Practical balanced green light.
+- Hide complex analysis behind details.
 
-Adds:
-- Strong single-candle move detection
-- Multi-candle impulse detection
-- Break of recent high/low detection
-- Strong move alerts even if new entry is not allowed
-- Take profit management guidance:
-  - If already in trade direction: take partial profit / move stop
-  - If not in trade: do not chase, wait for price to come back
-- Dashboard panel: STRONG MOVE / TAKE PROFIT
+Final commands:
+- BUY NOW
+- SELL NOW
+- WAIT FOR BUY
+- WAIT FOR SELL
+- DO NOT ENTER
+- DO NOT CHASE
+- WAIT FOR BETTER PRICE
+- MANAGE OPEN TRADE
+
+V38 uses:
+- trade readiness
+- trigger state
+- direction lock
+- strong move detector
+- news/regime guard
+- entry/SL/TP/cancel levels
+
+Important:
+If final command is not BUY NOW or SELL NOW, do not enter a new trade.
 
 Use:
 - /dashboard
-- /api/v37/signals
-- /api/v37/strong-move
-- /api/v37/usage
-
-Optional Railway variables:
-- STRONG_MOVE_PIPS_FX=7
-- STRONG_CANDLE_PIPS_FX=5
+- /api/v38/signals
+- /api/v38/trader-summary
+- /api/v38/usage
