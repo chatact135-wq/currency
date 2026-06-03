@@ -1,3 +1,4 @@
+from app.services.direction_lock import direction_lock_report
 from app.services.usage_meter import begin_refresh, track_refresh, report
 from app.services.alert_engine import all_alerts
 from fastapi import APIRouter, Depends
@@ -12,10 +13,10 @@ from app.services.signal_memory import memory_report
 from app.services.news_engine import news_state
 from app.services.backtest import run_backtest
 from app.services.adaptive import recalc_weights
-router=APIRouter(prefix="/api/v35",tags=["v32"])
+router=APIRouter(prefix="/api/v36",tags=["v32"])
 @router.get("/health")
 def health(db:Session=Depends(get_db)):
-    return {"status":"ok","version":"35.0.0","provider":"TwelveData + Simple Words Mode","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
+    return {"status":"ok","version":"36.0.0","provider":"TwelveData + Direction Lock","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
 @router.get("/signals")
 def signals(db:Session=Depends(get_db)):
     begin_refresh("signals")
@@ -121,3 +122,8 @@ def usage(refresh_seconds:int=10):
 @router.get("/signal-memory")
 def signal_memory():
     return memory_report()
+
+
+@router.get("/direction-lock")
+def direction_lock():
+    return direction_lock_report()
