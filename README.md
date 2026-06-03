@@ -1,16 +1,15 @@
-# MarketMind AI V32 — Stable Expiry
+# MarketMind AI V33 — Charts + Forex Only
 
-Fixes:
-- Removes the broken /api/v31_1 route issue.
-- Uses clean /api/v32 routes.
-- Adds safe persistent signal expiry using server memory.
-- Refreshing dashboard/API does not reset expiry while the server is running.
-- No new DB table is required, so it will not crash because of missing migrations.
-- Keeps V30 usage meter and dashboard alerts.
+- Gold/XAUUSD disabled by default to reduce API usage.
+- Active dashboard assets: EUR/USD and GBP/USD only.
+- Adds mini visual charts inside dashboard cards.
+- Shows entry, safe entry, SL, TP1/TP2, buy/sell triggers.
+- Adds BUY/SELL strength bars and simple timeframe boxes.
 
 Use:
 - /dashboard
-- /api/v32/signals
-- /api/v32/signal-memory
-- /api/v32/usage
-- /api/v32/price-check
+- /api/v33/signals
+- /api/v33/price-check
+- /api/v33/usage
+
+To enable Gold later, set ENABLE_GOLD=true in Railway variables.

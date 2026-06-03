@@ -1,3 +1,4 @@
+import os
 import requests
 from app.config import settings
 from app.services.usage_meter import track_refresh
@@ -10,7 +11,13 @@ def normalize(a):
     if a in ["GOLD","XAU"]: return "XAUUSD"
     if a in ["OIL","USOIL","WTIUSD"]: return "WTI"
     return a if a in ASSETS else "EURUSD"
-def active_assets(): return [a for a in settings.ACTIVE_ASSETS if a in ASSETS]
+def active_assets():
+    # V33 forex-only mode to save API calls.
+    base = ["EURUSD", "GBPUSD"]
+    if os.getenv("ENABLE_GOLD", "false").lower() in ["1", "true", "yes", "on"]:
+        base.append("XAUUSD")
+    return [a for a in base if a in ASSETS]
+
 def fetch_twelve(asset, outputsize=120, interval="5min"):
     sym=normalize(asset); key=f"td13:{sym}:{interval}:{outputsize}"
     c=cache.get(key,settings.MARKET_CACHE_SECONDS)
