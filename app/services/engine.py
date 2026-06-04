@@ -14,7 +14,10 @@ from app.services.freshness_guard import apply_freshness_guard
 from app.services.signal_memory import apply_signal_memory
 from app.services.active_mode import apply_active_mode
 from app.services.simple_words import apply_simple_words
-from app.services.simple_trader import apply_simple_trader
+from app.services.final_guard import apply_final_guard
+from app.services.early_trigger import apply_early_trigger
+from app.services.early_risk import apply_early_risk_controller
+from app.services.fast_start import apply_fast_start
 from app.services.direction_lock import apply_direction_lock
 from app.services.strong_move import apply_strong_move
 from app.services.news_engine import news_state
@@ -495,6 +498,9 @@ def signal(db,asset):
     result = apply_strong_move(result,c)
     result = apply_direction_lock(result)
     result = apply_simple_words(result)
-    result = apply_simple_trader(result)
+    result = apply_early_trigger(result,c)
+    result = apply_early_risk_controller(result)
+    result = apply_fast_start(result,c)
+    result = apply_final_guard(result)
     result=apply_freshness_guard(result)
     return apply_news_gate(result,nw)

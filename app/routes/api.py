@@ -1,4 +1,6 @@
-from app.services.simple_trader import trader_summary_report
+from app.services.fast_start import fast_start_report
+from app.services.early_risk import early_risk_report
+from app.services.early_trigger import early_trigger_report
 from app.services.strong_move import strong_move_report
 from app.services.direction_lock import direction_lock_report
 from app.services.usage_meter import begin_refresh, track_refresh, report
@@ -15,10 +17,10 @@ from app.services.signal_memory import memory_report
 from app.services.news_engine import news_state
 from app.services.backtest import run_backtest
 from app.services.adaptive import recalc_weights
-router=APIRouter(prefix="/api/v38",tags=["v32"])
+router=APIRouter(prefix="/api/v41",tags=["v32"])
 @router.get("/health")
 def health(db:Session=Depends(get_db)):
-    return {"status":"ok","version":"38.0.0","provider":"TwelveData + Simple Trader Mode","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
+    return {"status":"ok","version":"41.0.0","provider":"TwelveData + Fast Start Detector","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
 @router.get("/signals")
 def signals(db:Session=Depends(get_db)):
     begin_refresh("signals")
@@ -136,6 +138,16 @@ def strong_move():
     return strong_move_report()
 
 
-@router.get("/trader-summary")
-def trader_summary():
-    return trader_summary_report()
+@router.get("/early-trigger")
+def early_trigger():
+    return early_trigger_report()
+
+
+@router.get("/early-risk")
+def early_risk():
+    return early_risk_report()
+
+
+@router.get("/fast-start")
+def fast_start():
+    return fast_start_report()
