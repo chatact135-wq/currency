@@ -18,6 +18,7 @@ from app.services.final_guard import apply_final_guard
 from app.services.early_trigger import apply_early_trigger
 from app.services.early_risk import apply_early_risk_controller
 from app.services.fast_start import apply_fast_start
+from app.services.price_position import apply_price_position
 from app.services.direction_lock import apply_direction_lock
 from app.services.strong_move import apply_strong_move
 from app.services.news_engine import news_state
@@ -501,6 +502,7 @@ def signal(db,asset):
     result = apply_early_trigger(result,c)
     result = apply_early_risk_controller(result)
     result = apply_fast_start(result,c)
+    result = apply_price_position(result)
     result = apply_final_guard(result)
     result=apply_freshness_guard(result)
     return apply_news_gate(result,nw)
