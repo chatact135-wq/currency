@@ -1,29 +1,22 @@
-# MarketMind AI V44 — Move Completion Detector
+# MarketMind AI V45 — Trigger Lock Engine
 
 Purpose:
-Detect whether a BUY or SELL move is still early/active, or already extended/finished.
+Stop trigger/entry numbers from moving away every refresh.
 
-V44 adds:
-- MOVE STARTING
-- MOVE ACTIVE
-- MOVE EXTENDED
-- MOVE LIKELY FINISHED
-- DO NOT ENTER LATE
-- TAKE PROFIT / PROTECT PROFIT
-- Blocks master decision if move is likely finished
-
-Uses moves/points:
-- 10 moves = 1 pip on EUR/USD and GBP/USD
+Adds:
+- BUY trigger lock
+- SELL trigger lock
+- Trigger expiry
+- Trigger reached detection
+- Hold confirmation
+- Prevents chasing a moving trigger
 
 Optional Railway variables:
-- MOVE_STARTING_MOVES=12
-- MOVE_ACTIVE_MOVES=25
-- MOVE_EXTENDED_MOVES=40
-- MOVE_FINISHED_MOVES=55
-- MOVE_WEAK_CANDLE_MOVES=6
+- TRIGGER_LOCK_SECONDS=300
+- TRIGGER_HOLD_SECONDS=10
+- TRIGGER_TOUCH_TOLERANCE_MOVES=2
 
 Use:
 - /dashboard
-- /api/v44/signals
-- /api/v44/move-completion
-- /api/v44/usage
+- /api/v45/signals
+- /api/v45/trigger-lock

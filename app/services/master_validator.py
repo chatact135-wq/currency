@@ -75,9 +75,9 @@ def _is_safe_entry(result, direction):
         return False, "Another part of the system says NO TRADE."
 
     # Safe entry only if all modules allow and final is explicit.
-    if direction == "BUY" and ("BUY NOW" in fa or result.get("entry_permission") == "ENTRY_ALLOWED"):
+    if direction == "BUY" and ("BUY NOW" in fa or result.get("entry_permission") in ["ENTRY_ALLOWED", "TRIGGER_LOCK_CONFIRMED"]):
         return True, "Validated safe BUY."
-    if direction == "SELL" and ("SELL NOW" in fa or result.get("entry_permission") == "ENTRY_ALLOWED"):
+    if direction == "SELL" and ("SELL NOW" in fa or result.get("entry_permission") in ["ENTRY_ALLOWED", "TRIGGER_LOCK_CONFIRMED"]):
         return True, "Validated safe SELL."
 
     return False, "No safe entry permission."
