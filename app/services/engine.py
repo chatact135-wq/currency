@@ -26,6 +26,8 @@ from app.services.pro_panel import apply_pro_panel
 from app.services.open_trade import apply_open_trade_manager
 from app.services.continuation_entry import apply_continuation_entry
 from app.services.next_plan import apply_next_plan
+from app.services.plan_lock import apply_plan_lock
+from app.services.strategy_permission import apply_strategy_permission
 from app.services.move_completion import apply_move_completion
 from app.services.direction_lock import apply_direction_lock
 from app.services.strong_move import apply_strong_move
@@ -514,6 +516,8 @@ def signal(db,asset):
     result = apply_pro_panel(result)
     result = apply_continuation_entry(result)
     result = apply_next_plan(result)
+    result = apply_plan_lock(result)
+    result = apply_strategy_permission(result,c)
     result = apply_open_trade_manager(result)
     result = apply_early_trigger(result,c)
     result = apply_early_risk_controller(result)
