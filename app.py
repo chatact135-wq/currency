@@ -5,6 +5,7 @@ from datetime import datetime
 import zipfile
 import shutil
 
+from asgiref.wsgi import WsgiToAsgi
 from flask import Flask, render_template, request, send_file, redirect, url_for, flash
 import pandas as pd
 
@@ -16,9 +17,10 @@ RESULTS_DIR = BASE_DIR / "results"
 UPLOAD_DIR.mkdir(exist_ok=True)
 RESULTS_DIR.mkdir(exist_ok=True)
 
-app = Flask(__name__)
-app.secret_key = "edgeflow-backtest-lab"
-app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
+flask_app = Flask(__name__)
+app = flask_app
+flask_app.secret_key = "edgeflow-backtest-lab"
+flask_app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
 
 
 def clean_folder(path: Path):
@@ -113,5 +115,8 @@ def health():
     return {"status": "ok", "app": "EdgeFlow Terminal Pro Backtest Lab V1"}
 
 
+wsgi_app = flask_app
+app = WsgiToAsgi(flask_app)
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(__import__("os").environ.get("PORT", 8000)), debug=False)
+    flask_app.run(host="0.0.0.0", port=int(__import__("os").environ.get("PORT", 8000)), debug=False)

@@ -19,4 +19,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python -m gunicorn app:app --bind 0.0.0.0:${PORT:-8000} --workers 1 --threads 4 --timeout 180"]
+CMD ["sh", "-c", "python -m uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers"]

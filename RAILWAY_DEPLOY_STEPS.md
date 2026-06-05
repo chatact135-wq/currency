@@ -1,34 +1,30 @@
-# Railway Deploy Steps — V1.4 Docker fixed
+# Railway Deploy Steps — V1.5 uvicorn compatible
 
-This version avoids the Railway `mise` / `pip not found` problem completely by using an official Docker image:
+This version fixes:
 
-```dockerfile
-FROM python:3.11-slim
-```
-
-So Python and pip are available normally.
-
-## Fixed errors
-
-Previous errors:
 ```text
-No GitHub artifact attestations found for python@3.11.9
-pip: command not found
-No module named pip
+The executable `uvicorn` could not be found.
 ```
 
-V1.4 fix:
-- Removed `runtime.txt`
-- Removed `mise.toml`
-- Removed `nixpacks.toml`
-- Added `Dockerfile`
-- `railway.json` now uses Dockerfile builder
+Fixes:
+- Added `uvicorn` to requirements.
+- Added `asgiref`.
+- Wrapped Flask as an ASGI app using `WsgiToAsgi`.
+- Dockerfile starts with `python -m uvicorn app:app`.
 
-## Deploy
+## Important Railway setting
 
-Upload/deploy this package to Railway.
+If Railway has an old Start Command, set it to:
 
-After deploy, test:
+```bash
+python -m uvicorn app:app --host 0.0.0.0 --port $PORT --proxy-headers
+```
+
+Or remove the custom Start Command and let Dockerfile CMD run.
+
+## Test
+
+After deploy:
 
 ```text
 /health
@@ -39,5 +35,3 @@ Expected:
 ```json
 {"status":"ok","app":"EdgeFlow Terminal Pro Backtest Lab V1"}
 ```
-
-If Railway still uses Nixpacks, create a new Railway service from this package so it detects the Dockerfile cleanly.

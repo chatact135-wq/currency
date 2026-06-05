@@ -5,3 +5,7 @@ matplotlib==3.9.2
 openpyxl==3.1.5
 
 gunicorn==22.0.0
+
+uvicorn==0.30.6
+
+asgiref==3.8.1
