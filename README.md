@@ -1,19 +1,35 @@
-# MarketMind AI V46 — Scalp Entry + Above/Below Values
+# MarketMind AI V47 — Professional Trader Panel
 
-Adds:
-- BUY above and SELL below values together
-- distance in moves and pips
-- Safe Entry YES/NO
-- Scalp Entry ALLOWED/BLOCKED
-- reasons for blocked scalps
+Purpose:
+Make the dashboard simple like a professional trader screen.
+
+Instead of many confusing sections, V47 adds one trusted panel:
+
+TRADE DECISION:
+- ENTER BUY
+- ENTER SELL
+- SCALP BUY
+- SCALP SELL
+- WAIT
+- DO NOT ENTER
+- MANAGE TRADE
+
+Shows only:
+- main reason
+- current price
+- buy above
+- sell below
+- entry
+- stop/cancel
+- target
+- risk in moves
+- reward in moves
+- R/R
+
+The system still checks all filters in the background.
 
 Use:
 - /dashboard
-- /api/v46/signals
-- /api/v46/scalp-entry
-
-Optional Railway variables:
-SCALP_MIN_REWARD_MOVES=15
-SCALP_MAX_RISK_MOVES=20
-SCALP_MIN_RR=1.0
-SCALP_MAX_DISTANCE_TO_TRIGGER_MOVES=25
+- /api/v47/signals
+- /api/v47/pro-panel
+- /api/v47/usage
