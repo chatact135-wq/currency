@@ -1,85 +1,88 @@
-# EdgeFlow Terminal Pro — Backtest Lab V1
+# EdgeFlow Terminal Pro — Live Test V1
 
-A professional-style backtesting lab for forex scalping strategy research.
+Professional live-test trading terminal for EUR/USD and GBP/USD.
 
-This is **not a live signal system**. It is a strategy testing platform.
+This is not a "guaranteed profit" system. It is a controlled live-test platform using what we learned from the real-data backtest:
 
-## What it does
+- Do not trust raw mixed signals.
+- Detect market mode first.
+- Avoid random reversals in strong trend days.
+- Use breakout/retest and pullback continuation only when risk is controlled.
+- Block chasing late moves.
+- Use micro risk only until more results are proven.
 
-- Upload EUR/USD or GBP/USD BID and ASK M1 CSV files.
-- Merge BID/ASK data.
-- Include spread in testing.
-- Test multiple strategy families:
-  - Fast Impulse Breakout
-  - Fast Reversal
+## Main features
+
+- Live dashboard
+- TwelveData API support
+- Market Mode Detector
+  - TREND BUY
+  - TREND SELL
+  - NORMAL
+  - CHOPPY
+  - DANGER / HIGH VOLATILITY
+- Strategy Engine
+  - Break + Retest Continuation
   - Pullback Continuation
-- Compare presets:
-  - Raw Balanced
-  - Stricter All
-  - Breakout Only
-  - Reversal Only
-  - Pullback Only
-- Show:
-  - trades
-  - wins/losses
-  - win rate
-  - net moves
-  - average moves
-  - profit factor
-  - max losing streak
-  - average hold time
-- Export CSV reports and HTML report.
+  - Strong Trend Day Continuation
+  - Liquidity Sweep Reversal only when allowed
+- No-Chase filter
+- Risk / reward filter
+- Trade Manager
+- Daily Safety Guard
+- Signal Journal
 
-## Why this exists
+## Commands
 
-The earlier EUR/USD backtest showed the simple fast breakout/reversal logic was negative.  
-So before building another live dashboard, this lab tests strategies on real historical BID/ASK data first.
+The system only gives these commands:
 
-## Quick start
+```text
+TRADE NOW BUY
+TRADE NOW SELL
+SCALP NOW BUY
+SCALP NOW SELL
+PLAN ONLY — DO NOT ENTER
+NO TRADE
+MOVE MISSED — DO NOT CHASE
+MANAGE OPEN TRADE
+```
+
+## Run locally
 
 ```bash
 pip install -r requirements.txt
-python app.py
+python -m uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
-Then open:
+Open:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-## Upload data
+## Railway
 
-Upload pairs of files:
+This package includes Dockerfile and railway.json.
 
-```text
-EUR-USD_1Minute_BID_2026-06-02_...
-EUR-USD_1Minute_ASK_2026-06-02_...
-```
-
-You can upload many days at once.
-
-## Important backtest assumptions
-
-- BUY entry uses ASK close.
-- BUY exit uses BID high/low.
-- SELL entry uses BID close.
-- SELL exit uses ASK high/low.
-- If stop and target are both hit in the same M1 candle, the test assumes stop first. This is conservative.
-- M1 data cannot perfectly know intra-minute order. Tick data is better for fast scalping.
-
-## Folder structure
+Set environment variable:
 
 ```text
-app.py
-backtest_engine.py
-templates/
-static/
-uploads/
-results/
-sample_data/
+TWELVEDATA_API_KEY=your_key_here
 ```
 
-## Professional rule
+Optional:
 
-A strategy is not allowed in live trading until it shows acceptable backtest results across enough data.
+```text
+EDGEFLOW_REFRESH_SECONDS=30
+EDGEFLOW_MODE=live_test
+```
+
+## Important risk warning
+
+Use demo or micro real-money testing only.
+
+Recommended rules:
+- Max 0.25% risk per trade.
+- Max 1–2 trades per day.
+- Stop after 2 losses.
+- No trade when command is PLAN ONLY / NO TRADE / MOVE MISSED.

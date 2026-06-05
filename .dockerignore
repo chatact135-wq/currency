@@ -1,6 +1,4 @@
 __pycache__
 *.pyc
 .git
-uploads
-results
-EdgeFlow_Backtest_Results.zip
+runtime_data

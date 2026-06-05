@@ -1,34 +1,32 @@
-# EdgeFlow Terminal Pro Backtest Lab V1.7 — Docker CMD Only
+# Railway Deploy — EdgeFlow Terminal Pro Live Test V1
 
-This version fixes Railway override issues.
-
-## Important change
-
-`railway.json` no longer contains `deploy.startCommand`.
-
-So Railway must use the Dockerfile CMD:
-
-```bash
-sh -c 'echo "Starting EdgeFlow on PORT=${PORT:-8000}" && python -m uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers'
-```
-
-## Deploy instructions
-
-1. Deploy this package.
-2. In Railway service settings, remove any custom Start Command.
-3. Railway should show the Start Command value is no longer set by `railway.json`.
-4. Open Deploy Logs and look for:
+1. Deploy this ZIP / repo to Railway.
+2. Add environment variable:
 
 ```text
-Starting EdgeFlow on PORT=...
-Uvicorn running on http://0.0.0.0:...
+TWELVEDATA_API_KEY=your_key
+```
+
+3. Make sure Railway Custom Start Command is empty.
+4. Open:
+
+```text
+/
+```
+
+or:
+
+```text
+/dashboard
 ```
 
 5. Test:
 
 ```text
 /health
+/api/signals
 /debug
 ```
 
-If it still fails, send the deploy logs line starting from "Starting EdgeFlow..." or the first red traceback.
+Important:
+If API key is missing, the dashboard uses DEMO FALLBACK data and is NOT for trading.

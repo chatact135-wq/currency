@@ -1,132 +1,113 @@
 from __future__ import annotations
 
 from pathlib import Path
-import shutil
-import zipfile
+from typing import Dict
 import os
+import traceback
 
-from fastapi import FastAPI, UploadFile, File, Request
-from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
+from fastapi import FastAPI, Request, Form
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from backtest_engine import run_all
+from edgeflow.config import APP_NAME, SYMBOLS, REFRESH_SECONDS
+from edgeflow.data_provider import fetch_twelvedata_candles, fallback_demo_data, DataError
+from edgeflow.strategy_engine import analyze_symbol
+from edgeflow.journal import log_signal, get_journal, mark_entered, close_trade, get_open_trades, manage_trade
 
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = BASE_DIR / "uploads"
-RESULTS_DIR = BASE_DIR / "results"
-UPLOAD_DIR.mkdir(exist_ok=True)
-RESULTS_DIR.mkdir(exist_ok=True)
-
-app = FastAPI(title="EdgeFlow Terminal Pro Backtest Lab V1")
+app = FastAPI(title=APP_NAME)
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+_LAST_SIGNALS: Dict[str, dict] = {}
 
-def clean_folder(path: Path):
-    path.mkdir(exist_ok=True)
-    for item in path.iterdir():
-        if item.is_file():
-            item.unlink()
-        elif item.is_dir():
-            shutil.rmtree(item)
+
+async def analyze_all() -> dict:
+    results = {}
+    for symbol in SYMBOLS:
+        try:
+            df = await fetch_twelvedata_candles(symbol, "1min", 200)
+            source = "TwelveData live"
+            error = None
+        except Exception as e:
+            df = fallback_demo_data(symbol)
+            source = "DEMO FALLBACK — NOT FOR TRADING"
+            error = str(e)
+
+        signal = analyze_symbol(symbol, df)
+        current = signal.get("price") or float(df["close"].iloc[-1])
+        manager = manage_trade(symbol, current)
+
+        signal["symbol"] = symbol
+        signal["source"] = source
+        signal["data_error"] = error
+        signal["open_trade_manager"] = manager
+        results[symbol] = signal
+        _LAST_SIGNALS[symbol] = signal
+        log_signal(symbol, signal)
+    return results
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "app": "EdgeFlow Terminal Pro Backtest Lab V1", "framework": "FastAPI"}
+    return {"status": "ok", "app": APP_NAME, "mode": "LIVE TEST", "port_env": os.environ.get("PORT")}
+
+
+@app.get("/ping")
+async def ping():
+    return "pong"
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "message": None})
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "app_name": APP_NAME,
+        "refresh_seconds": REFRESH_SECONDS,
+        "symbols": SYMBOLS,
+    })
 
 
-@app.post("/run", response_class=HTMLResponse)
-async def run_backtest(request: Request, files: list[UploadFile] = File(...)):
-    if not files:
-        return templates.TemplateResponse("index.html", {"request": request, "message": "Upload BID and ASK CSV files first."})
-
-    clean_folder(UPLOAD_DIR)
-    clean_folder(RESULTS_DIR)
-
-    saved = []
-    for f in files:
-        if not f.filename or not f.filename.lower().endswith(".csv"):
-            continue
-        safe_name = Path(f.filename).name
-        dest = UPLOAD_DIR / safe_name
-        content = await f.read()
-        dest.write_bytes(content)
-        saved.append(dest)
-
-    bid_files = [p for p in saved if "_BID_" in p.name.upper()]
-    ask_files = [p for p in saved if "_ASK_" in p.name.upper()]
-
-    if not bid_files or not ask_files:
-        return templates.TemplateResponse(
-            "index.html",
-            {"request": request, "message": "You must upload at least one BID CSV and one ASK CSV."},
-        )
-
+@app.get("/api/signals")
+async def api_signals():
     try:
-        result = run_all(bid_files, ask_files, RESULTS_DIR)
-    except Exception as e:
-        return templates.TemplateResponse(
-            "index.html",
-            {"request": request, "message": f"Backtest error: {e}"},
-        )
-
-    summary = result["summary"].copy()
-    table_html = summary.to_html(index=False, classes="table", border=0)
-
-    return templates.TemplateResponse(
-        "results.html",
-        {
-            "request": request,
-            "data_rows": result["data_rows"],
-            "start": result["start"],
-            "end": result["end"],
-            "avg_spread": result["avg_spread_moves"],
-            "max_spread": result["max_spread_moves"],
-            "table_html": table_html,
-        },
-    )
+        results = await analyze_all()
+        return {"status": "ok", "refresh_seconds": REFRESH_SECONDS, "signals": results}
+    except Exception:
+        return JSONResponse({"status": "error", "traceback": traceback.format_exc()}, status_code=500)
 
 
-@app.get("/download")
-async def download_zip():
-    if not RESULTS_DIR.exists() or not any(RESULTS_DIR.iterdir()):
-        return RedirectResponse(url="/", status_code=302)
-
-    zip_path = BASE_DIR / "EdgeFlow_Backtest_Results.zip"
-    if zip_path.exists():
-        zip_path.unlink()
-
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in RESULTS_DIR.rglob("*"):
-            if f.is_file():
-                z.write(f, f.relative_to(RESULTS_DIR))
-
-    return FileResponse(zip_path, filename="EdgeFlow_Backtest_Results.zip", media_type="application/zip")
+@app.get("/api/journal")
+async def api_journal():
+    return {"journal": get_journal()[-200:]}
 
 
-@app.get("/report")
-async def report():
-    report_path = RESULTS_DIR / "Backtest_Report.html"
-    if not report_path.exists():
-        return RedirectResponse(url="/", status_code=302)
-    return FileResponse(report_path, media_type="text/html")
+@app.get("/api/open-trades")
+async def api_open_trades():
+    return {"open_trades": get_open_trades()}
+
+
+@app.post("/entered")
+async def entered(symbol: str = Form(...), direction: str = Form(...), entry: float = Form(...), stop: float = Form(...), target: float = Form(...)):
+    mark_entered(symbol, direction, entry, stop, target)
+    return RedirectResponse(url="/dashboard", status_code=303)
+
+
+@app.post("/close")
+async def close(symbol: str = Form(...)):
+    close_trade(symbol)
+    return RedirectResponse(url="/dashboard", status_code=303)
 
 
 @app.get("/debug")
 async def debug():
     return {
-        "base_dir": str(BASE_DIR),
-        "uploads_exists": UPLOAD_DIR.exists(),
-        "results_exists": RESULTS_DIR.exists(),
-        "templates_exists": (BASE_DIR / "templates").exists(),
-        "static_exists": (BASE_DIR / "static").exists(),
+        "app": APP_NAME,
+        "symbols": SYMBOLS,
+        "has_last_signals": bool(_LAST_SIGNALS),
         "port_env": os.environ.get("PORT"),
+        "env_has_twelvedata_key": bool(os.environ.get("TWELVEDATA_API_KEY")),
     }
