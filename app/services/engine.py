@@ -21,6 +21,7 @@ from app.services.fast_start import apply_fast_start
 from app.services.price_position import apply_price_position
 from app.services.master_validator import apply_master_validator
 from app.services.trigger_lock import apply_trigger_lock
+from app.services.scalp_entry import apply_scalp_entry
 from app.services.move_completion import apply_move_completion
 from app.services.direction_lock import apply_direction_lock
 from app.services.strong_move import apply_strong_move
@@ -504,6 +505,7 @@ def signal(db,asset):
     result = apply_simple_words(result)
     result = apply_move_completion(result,c)
     result = apply_trigger_lock(result)
+    result = apply_scalp_entry(result)
     result = apply_master_validator(result)
     result = apply_early_trigger(result,c)
     result = apply_early_risk_controller(result)

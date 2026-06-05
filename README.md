@@ -1,22 +1,19 @@
-# MarketMind AI V45 — Trigger Lock Engine
-
-Purpose:
-Stop trigger/entry numbers from moving away every refresh.
+# MarketMind AI V46 — Scalp Entry + Above/Below Values
 
 Adds:
-- BUY trigger lock
-- SELL trigger lock
-- Trigger expiry
-- Trigger reached detection
-- Hold confirmation
-- Prevents chasing a moving trigger
-
-Optional Railway variables:
-- TRIGGER_LOCK_SECONDS=300
-- TRIGGER_HOLD_SECONDS=10
-- TRIGGER_TOUCH_TOLERANCE_MOVES=2
+- BUY above and SELL below values together
+- distance in moves and pips
+- Safe Entry YES/NO
+- Scalp Entry ALLOWED/BLOCKED
+- reasons for blocked scalps
 
 Use:
 - /dashboard
-- /api/v45/signals
-- /api/v45/trigger-lock
+- /api/v46/signals
+- /api/v46/scalp-entry
+
+Optional Railway variables:
+SCALP_MIN_REWARD_MOVES=15
+SCALP_MAX_RISK_MOVES=20
+SCALP_MIN_RR=1.0
+SCALP_MAX_DISTANCE_TO_TRIGGER_MOVES=25
