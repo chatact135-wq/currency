@@ -1,0 +1,3 @@
+direction,trades,wins,losses,win_rate_%,net_moves,avg_moves,profit_factor,avg_hold_min,max_loss_streak,ambiguous
+BUY,51.0,20.0,31.0,39.2,27.0,0.53,1.05,6.3,6.0,0.0
+SELL,65.0,20.0,45.0,30.8,-252.0,-3.88,0.68,6.3,10.0,1.0
