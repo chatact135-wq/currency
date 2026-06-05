@@ -1,19 +1,32 @@
-# Railway Deploy Steps
+# Railway Deploy Steps — V1.2 mise fix
 
-1. Upload this ZIP to GitHub or Railway.
-2. Railway should detect Python automatically.
-3. Start command is already set in `railway.json`:
+This package fixes the Railway build error:
 
-```bash
-gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180
+```text
+mise ERROR Failed to install core:python@3.11.9
+No GitHub artifact attestations found
 ```
 
-4. If Railway still fails, open Deploy Logs and check:
-   - Did `pip install -r requirements.txt` complete?
-   - Is `gunicorn` installed?
-   - Is the app listening on `$PORT`?
+Fixes included:
+- Removed `runtime.txt` that forced exact Python 3.11.9.
+- Added `mise.toml` with `python.github_attestations = false`.
+- Added `nixpacks.toml` to use Python 3.11 and start with gunicorn.
+- Kept `railway.json` start command.
 
-## Common fixed issue
+After deploying, test:
 
-The previous package had a Procfile using gunicorn but requirements.txt did not include gunicorn.  
-This version fixes that.
+```text
+/health
+```
+
+Expected:
+
+```json
+{"status":"ok","app":"EdgeFlow Terminal Pro Backtest Lab V1"}
+```
+
+If Railway still uses cache:
+1. Go to Railway project.
+2. Settings or Deployments.
+3. Trigger redeploy with cache cleared if available.
+4. Or create a new Railway service from this ZIP/repo.
