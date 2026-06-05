@@ -18,6 +18,7 @@ RESULTS_DIR.mkdir(exist_ok=True)
 
 app = Flask(__name__)
 app.secret_key = "edgeflow-backtest-lab"
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
 
 
 def clean_folder(path: Path):
@@ -113,4 +114,4 @@ def health():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=int(__import__("os").environ.get("PORT", 8000)), debug=False)
