@@ -1,15 +1,15 @@
-# MarketMind AI V48 — Top Pro Trader Panel
+# MarketMind AI V49 — Fixed Top Pro Trader Panel
 
-Purpose:
-Make the professional trader decision visible immediately at the top of the dashboard.
+Fix:
+V48 backend worked, but the visual top panel did not appear in the dashboard template.
 
-Adds:
-- Sticky top professional decision bar
-- Large visible decision cards for EUR/USD and GBP/USD
-- Decision, reason, buy above, sell below, risk/reward
-- Hide complicated old sections behind the top final decision visually
+V49 force-adds a fixed top Pro Trader bar:
+- Always visible at the top
+- Populated directly from /api/v49/signals
+- Shows each asset decision, reason, buy above, sell below, risk/reward
+- Works even if the old card template does not include the injected panel
 
 Use:
 - /dashboard
-- /api/v48/signals
-- /api/v48/pro-panel
+- /api/v49/signals
+- /api/v49/pro-panel
