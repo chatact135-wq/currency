@@ -1,16 +1,32 @@
-# Railway Deploy Steps — V1.3 pip fixed
+# Railway Deploy Steps — V1.4 Docker fixed
 
-This package fixes:
+This version avoids the Railway `mise` / `pip not found` problem completely by using an official Docker image:
 
-```text
-/bin/bash: line 1: pip: command not found
+```dockerfile
+FROM python:3.11-slim
 ```
 
-Fix:
-- `nixpacks.toml` now uses `python -m pip`, not `pip`.
-- Start command uses `python -m gunicorn`.
-- `runtime.txt` removed.
-- `mise.toml` disables Python GitHub attestation verification.
+So Python and pip are available normally.
+
+## Fixed errors
+
+Previous errors:
+```text
+No GitHub artifact attestations found for python@3.11.9
+pip: command not found
+No module named pip
+```
+
+V1.4 fix:
+- Removed `runtime.txt`
+- Removed `mise.toml`
+- Removed `nixpacks.toml`
+- Added `Dockerfile`
+- `railway.json` now uses Dockerfile builder
+
+## Deploy
+
+Upload/deploy this package to Railway.
 
 After deploy, test:
 
@@ -24,4 +40,4 @@ Expected:
 {"status":"ok","app":"EdgeFlow Terminal Pro Backtest Lab V1"}
 ```
 
-If Railway still shows old build commands, clear cache or create a new Railway service from this package.
+If Railway still uses Nixpacks, create a new Railway service from this package so it detects the Dockerfile cleanly.

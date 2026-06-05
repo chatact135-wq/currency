@@ -1,5 +1,6 @@
 __pycache__
 *.pyc
+.git
 uploads
 results
-.git
+EdgeFlow_Backtest_Results.zip
