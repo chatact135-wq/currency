@@ -1,37 +1,34 @@
-# Railway Deploy Steps — V1.5 uvicorn compatible
+# EdgeFlow Terminal Pro Backtest Lab V1.7 — Docker CMD Only
 
-This version fixes:
+This version fixes Railway override issues.
 
-```text
-The executable `uvicorn` could not be found.
-```
+## Important change
 
-Fixes:
-- Added `uvicorn` to requirements.
-- Added `asgiref`.
-- Wrapped Flask as an ASGI app using `WsgiToAsgi`.
-- Dockerfile starts with `python -m uvicorn app:app`.
+`railway.json` no longer contains `deploy.startCommand`.
 
-## Important Railway setting
-
-If Railway has an old Start Command, set it to:
+So Railway must use the Dockerfile CMD:
 
 ```bash
-python -m uvicorn app:app --host 0.0.0.0 --port $PORT --proxy-headers
+sh -c 'echo "Starting EdgeFlow on PORT=${PORT:-8000}" && python -m uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers'
 ```
 
-Or remove the custom Start Command and let Dockerfile CMD run.
+## Deploy instructions
 
-## Test
+1. Deploy this package.
+2. In Railway service settings, remove any custom Start Command.
+3. Railway should show the Start Command value is no longer set by `railway.json`.
+4. Open Deploy Logs and look for:
 
-After deploy:
+```text
+Starting EdgeFlow on PORT=...
+Uvicorn running on http://0.0.0.0:...
+```
+
+5. Test:
 
 ```text
 /health
+/debug
 ```
 
-Expected:
-
-```json
-{"status":"ok","app":"EdgeFlow Terminal Pro Backtest Lab V1"}
-```
+If it still fails, send the deploy logs line starting from "Starting EdgeFlow..." or the first red traceback.

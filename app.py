@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from datetime import datetime
-import zipfile
 import shutil
+import zipfile
+import os
 
-from asgiref.wsgi import WsgiToAsgi
-from flask import Flask, render_template, request, send_file, redirect, url_for, flash
-import pandas as pd
+from fastapi import FastAPI, UploadFile, File, Request
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from backtest_engine import run_all
 
@@ -17,10 +18,10 @@ RESULTS_DIR = BASE_DIR / "results"
 UPLOAD_DIR.mkdir(exist_ok=True)
 RESULTS_DIR.mkdir(exist_ok=True)
 
-flask_app = Flask(__name__)
-app = flask_app
-flask_app.secret_key = "edgeflow-backtest-lab"
-flask_app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
+app = FastAPI(title="EdgeFlow Terminal Pro Backtest Lab V1")
+
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 def clean_folder(path: Path):
@@ -32,62 +33,72 @@ def clean_folder(path: Path):
             shutil.rmtree(item)
 
 
-@app.route("/", methods=["GET"])
-def index():
-    return render_template("index.html")
+@app.get("/health")
+async def health():
+    return {"status": "ok", "app": "EdgeFlow Terminal Pro Backtest Lab V1", "framework": "FastAPI"}
 
 
-@app.route("/run", methods=["POST"])
-def run_backtest():
-    files = request.files.getlist("files")
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request, "message": None})
+
+
+@app.post("/run", response_class=HTMLResponse)
+async def run_backtest(request: Request, files: list[UploadFile] = File(...)):
     if not files:
-        flash("Upload BID and ASK CSV files first.")
-        return redirect(url_for("index"))
+        return templates.TemplateResponse("index.html", {"request": request, "message": "Upload BID and ASK CSV files first."})
 
     clean_folder(UPLOAD_DIR)
     clean_folder(RESULTS_DIR)
 
     saved = []
     for f in files:
-        if not f.filename.lower().endswith(".csv"):
+        if not f.filename or not f.filename.lower().endswith(".csv"):
             continue
         safe_name = Path(f.filename).name
         dest = UPLOAD_DIR / safe_name
-        f.save(dest)
+        content = await f.read()
+        dest.write_bytes(content)
         saved.append(dest)
 
     bid_files = [p for p in saved if "_BID_" in p.name.upper()]
     ask_files = [p for p in saved if "_ASK_" in p.name.upper()]
 
     if not bid_files or not ask_files:
-        flash("You must upload at least one BID CSV and one ASK CSV.")
-        return redirect(url_for("index"))
+        return templates.TemplateResponse(
+            "index.html",
+            {"request": request, "message": "You must upload at least one BID CSV and one ASK CSV."},
+        )
 
     try:
         result = run_all(bid_files, ask_files, RESULTS_DIR)
     except Exception as e:
-        flash(f"Backtest error: {e}")
-        return redirect(url_for("index"))
+        return templates.TemplateResponse(
+            "index.html",
+            {"request": request, "message": f"Backtest error: {e}"},
+        )
 
     summary = result["summary"].copy()
     table_html = summary.to_html(index=False, classes="table", border=0)
 
-    return render_template(
+    return templates.TemplateResponse(
         "results.html",
-        data_rows=result["data_rows"],
-        start=result["start"],
-        end=result["end"],
-        avg_spread=result["avg_spread_moves"],
-        max_spread=result["max_spread_moves"],
-        table_html=table_html,
+        {
+            "request": request,
+            "data_rows": result["data_rows"],
+            "start": result["start"],
+            "end": result["end"],
+            "avg_spread": result["avg_spread_moves"],
+            "max_spread": result["max_spread_moves"],
+            "table_html": table_html,
+        },
     )
 
 
-@app.route("/download")
-def download_zip():
+@app.get("/download")
+async def download_zip():
     if not RESULTS_DIR.exists() or not any(RESULTS_DIR.iterdir()):
-        flash("Run a backtest first.")
-        return redirect(url_for("index"))
+        return RedirectResponse(url="/", status_code=302)
 
     zip_path = BASE_DIR / "EdgeFlow_Backtest_Results.zip"
     if zip_path.exists():
@@ -98,25 +109,24 @@ def download_zip():
             if f.is_file():
                 z.write(f, f.relative_to(RESULTS_DIR))
 
-    return send_file(zip_path, as_attachment=True)
+    return FileResponse(zip_path, filename="EdgeFlow_Backtest_Results.zip", media_type="application/zip")
 
 
-@app.route("/report")
-def report():
+@app.get("/report")
+async def report():
     report_path = RESULTS_DIR / "Backtest_Report.html"
     if not report_path.exists():
-        flash("Run a backtest first.")
-        return redirect(url_for("index"))
-    return send_file(report_path)
+        return RedirectResponse(url="/", status_code=302)
+    return FileResponse(report_path, media_type="text/html")
 
 
-@app.route("/health")
-def health():
-    return {"status": "ok", "app": "EdgeFlow Terminal Pro Backtest Lab V1"}
-
-
-wsgi_app = flask_app
-app = WsgiToAsgi(flask_app)
-
-if __name__ == "__main__":
-    flask_app.run(host="0.0.0.0", port=int(__import__("os").environ.get("PORT", 8000)), debug=False)
+@app.get("/debug")
+async def debug():
+    return {
+        "base_dir": str(BASE_DIR),
+        "uploads_exists": UPLOAD_DIR.exists(),
+        "results_exists": RESULTS_DIR.exists(),
+        "templates_exists": (BASE_DIR / "templates").exists(),
+        "static_exists": (BASE_DIR / "static").exists(),
+        "port_env": os.environ.get("PORT"),
+    }

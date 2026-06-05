@@ -4,23 +4,19 @@
   <meta charset="utf-8">
   <title>EdgeFlow Terminal Pro — Backtest Lab</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <header>
     <div>
       <h1>EdgeFlow Terminal Pro</h1>
-      <p>Backtest Lab V1 — Strategy first, live signals later</p>
+      <p>Backtest Lab V1.6 — FastAPI Railway Fixed</p>
     </div>
   </header>
   <main>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="flash">
-          {% for m in messages %}<p>{{ m }}</p>{% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+    {% if message %}
+      <div class="flash"><p>{{ message }}</p></div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 </body>

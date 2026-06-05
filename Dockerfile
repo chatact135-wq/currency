@@ -19,4 +19,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python -m uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers"]
+CMD sh -c 'echo "Starting EdgeFlow on PORT=${PORT:-8000}" && python -m uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers'
