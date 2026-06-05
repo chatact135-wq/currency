@@ -1,19 +1,18 @@
-# Railway Deploy Steps — V1.2 mise fix
+# Railway Deploy Steps — V1.3 pip fixed
 
-This package fixes the Railway build error:
+This package fixes:
 
 ```text
-mise ERROR Failed to install core:python@3.11.9
-No GitHub artifact attestations found
+/bin/bash: line 1: pip: command not found
 ```
 
-Fixes included:
-- Removed `runtime.txt` that forced exact Python 3.11.9.
-- Added `mise.toml` with `python.github_attestations = false`.
-- Added `nixpacks.toml` to use Python 3.11 and start with gunicorn.
-- Kept `railway.json` start command.
+Fix:
+- `nixpacks.toml` now uses `python -m pip`, not `pip`.
+- Start command uses `python -m gunicorn`.
+- `runtime.txt` removed.
+- `mise.toml` disables Python GitHub attestation verification.
 
-After deploying, test:
+After deploy, test:
 
 ```text
 /health
@@ -25,8 +24,4 @@ Expected:
 {"status":"ok","app":"EdgeFlow Terminal Pro Backtest Lab V1"}
 ```
 
-If Railway still uses cache:
-1. Go to Railway project.
-2. Settings or Deployments.
-3. Trigger redeploy with cache cleared if available.
-4. Or create a new Railway service from this ZIP/repo.
+If Railway still shows old build commands, clear cache or create a new Railway service from this package.
