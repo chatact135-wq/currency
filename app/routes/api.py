@@ -1,3 +1,6 @@
+from app.services.strategy_event_engine import strategy_events_report
+from app.services.break_activation import break_activation_report
+from app.services.permission_clarity import permission_clarity_report
 from app.services.strategy_permission import strategy_permission_report
 from app.services.plan_lock import plan_lock_report
 from app.services.next_plan import next_plan_report
@@ -29,7 +32,7 @@ from app.services.signal_memory import memory_report
 from app.services.news_engine import news_state
 from app.services.backtest import run_backtest
 from app.services.adaptive import recalc_weights
-router=APIRouter(prefix="/api/pro/v1",tags=["v32"])
+router=APIRouter(prefix="/api/pro/v4",tags=["v32"])
 @router.get("/health")
 def health(db:Session=Depends(get_db)):
     return {"status":"ok","version":"1.0.0","provider":"TwelveData + EdgeFlow Strategy Permission","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
@@ -237,3 +240,18 @@ def plan_lock():
 @router.get("/strategy-permission")
 def strategy_permission():
     return strategy_permission_report()
+
+
+@router.get("/permission-clarity")
+def permission_clarity():
+    return permission_clarity_report()
+
+
+@router.get("/break-activation")
+def break_activation():
+    return break_activation_report()
+
+
+@router.get("/strategy-events")
+def strategy_events():
+    return strategy_events_report()

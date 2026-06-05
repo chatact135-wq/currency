@@ -1,34 +1,33 @@
-# EdgeFlow FX Pro — Strategy Permission System V1
+# EdgeFlow FX Pro V4 — Real Strategy Event Engine
 
-This is a new professional trading-model system, not V54.
+This is not only text/UI change.
 
-Core permission model:
-- A+ Setup = TRADE NOW
-- B Setup = SCALP NOW
-- C Setup = PLAN ONLY — DO NOT ENTER
-- Bad Market = NO TRADE
-- Open Position = MANAGE TRADE
+V4 adds a real event-based strategy engine:
+- Detects fast impulse moves
+- Detects break of BUY above / SELL below
+- Detects velocity from last refresh
+- Detects if move is already late/missed
+- Creates its own small-risk scalp entry, stop, and target when momentum confirms
+- Overrides PLAN ONLY when a real strategy event is active
 
-Strategy types:
-- Pullback Continuation
-- Break / Retest
-- Liquidity Sweep Reversal
-- Range Rejection
-- Fast Scalp Momentum
-- No Strategy
+Professional event states:
+- FAST IMPULSE BUY / SELL
+- BREAKOUT BUY / SELL
+- PRE-BREAK MOMENTUM BUY / SELL
+- SCALP NOW BUY / SELL
+- TRADE NOW BUY / SELL
+- MOVE MISSED — DO NOT CHASE
+- PLAN ONLY — DO NOT ENTER
+- NO STRATEGY
 
-Main links:
+Key idea:
+The system should not buy only because price is up.
+It should buy only when a strategy event is detected and risk is controlled.
+
+New endpoint:
+- /api/pro/v4/strategy-events
+
+Main:
 - /dashboard
-- /api/pro/v1/signals
-- /api/pro/v1/pro-panel
-- /api/pro/v1/strategy-permission
-- /api/pro/v1/plan-lock
-- /api/pro/v1/trade/status
-
-Recommended variables:
-STRATEGY_MODE=balanced
-STRATEGY_SCALP_MIN_REWARD_MOVES=12
-STRATEGY_SCALP_MAX_RISK_MOVES=22
-STRATEGY_SCALP_MIN_RR=0.9
-STRATEGY_TRADE_MIN_RR=1.15
-STRATEGY_CONFIRM_BODY_MOVES=8
+- /api/pro/v4/signals
+- /api/pro/v4/strategy-events

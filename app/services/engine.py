@@ -28,6 +28,9 @@ from app.services.continuation_entry import apply_continuation_entry
 from app.services.next_plan import apply_next_plan
 from app.services.plan_lock import apply_plan_lock
 from app.services.strategy_permission import apply_strategy_permission
+from app.services.permission_clarity import apply_permission_clarity
+from app.services.break_activation import apply_break_activation
+from app.services.strategy_event_engine import apply_strategy_event_engine
 from app.services.move_completion import apply_move_completion
 from app.services.direction_lock import apply_direction_lock
 from app.services.strong_move import apply_strong_move
@@ -518,6 +521,9 @@ def signal(db,asset):
     result = apply_next_plan(result)
     result = apply_plan_lock(result)
     result = apply_strategy_permission(result,c)
+    result = apply_permission_clarity(result)
+    result = apply_break_activation(result)
+    result = apply_strategy_event_engine(result,c)
     result = apply_open_trade_manager(result)
     result = apply_early_trigger(result,c)
     result = apply_early_risk_controller(result)
