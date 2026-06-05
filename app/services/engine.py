@@ -23,6 +23,7 @@ from app.services.master_validator import apply_master_validator
 from app.services.trigger_lock import apply_trigger_lock
 from app.services.scalp_entry import apply_scalp_entry
 from app.services.pro_panel import apply_pro_panel
+from app.services.open_trade import apply_open_trade_manager
 from app.services.move_completion import apply_move_completion
 from app.services.direction_lock import apply_direction_lock
 from app.services.strong_move import apply_strong_move
@@ -509,6 +510,7 @@ def signal(db,asset):
     result = apply_scalp_entry(result)
     result = apply_master_validator(result)
     result = apply_pro_panel(result)
+    result = apply_open_trade_manager(result)
     result = apply_early_trigger(result,c)
     result = apply_early_risk_controller(result)
     result = apply_fast_start(result,c)

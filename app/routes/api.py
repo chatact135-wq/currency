@@ -1,3 +1,5 @@
+from pydantic import BaseModel
+from app.services.open_trade import open_trade, close_trade, trade_status
 from app.services.pro_panel import pro_panel_report
 from app.services.scalp_entry import scalp_entry_report
 from app.services.trigger_lock import trigger_lock_report
@@ -23,10 +25,10 @@ from app.services.signal_memory import memory_report
 from app.services.news_engine import news_state
 from app.services.backtest import run_backtest
 from app.services.adaptive import recalc_weights
-router=APIRouter(prefix="/api/v49",tags=["v32"])
+router=APIRouter(prefix="/api/v50",tags=["v32"])
 @router.get("/health")
 def health(db:Session=Depends(get_db)):
-    return {"status":"ok","version":"49.0.0","provider":"TwelveData + Fixed Top Pro Trader Panel","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
+    return {"status":"ok","version":"50.0.0","provider":"TwelveData + Open Trade Manager","twelvedata_key":bool(settings.TWELVEDATA_API_KEY),"assets":active_assets(),"candles":{a:db.query(MarketCandle).filter(MarketCandle.asset==a).count() for a in active_assets()},"backtest_trades":{a:db.query(BacktestTrade).filter(BacktestTrade.asset==a).count() for a in active_assets()}}
 @router.get("/signals")
 def signals(db:Session=Depends(get_db)):
     begin_refresh("signals")
@@ -187,3 +189,27 @@ def scalp_entry():
 @router.get("/pro-panel")
 def pro_panel():
     return pro_panel_report()
+
+
+class OpenTradeRequest(BaseModel):
+    asset: str
+    direction: str
+    entry_price: float | None = None
+    stop: float | None = None
+    target: float | None = None
+    note: str | None = None
+
+class CloseTradeRequest(BaseModel):
+    asset: str
+
+@router.post("/trade/open")
+def trade_open(req: OpenTradeRequest):
+    return open_trade(req.asset, req.direction, req.entry_price, req.stop, req.target, req.note)
+
+@router.post("/trade/close")
+def trade_close(req: CloseTradeRequest):
+    return close_trade(req.asset)
+
+@router.get("/trade/status")
+def trade_status_get(asset: str | None = None):
+    return trade_status(asset)

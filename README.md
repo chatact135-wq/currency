@@ -1,15 +1,24 @@
-# MarketMind AI V49 — Fixed Top Pro Trader Panel
+# MarketMind AI V50 — Open Trade Manager
 
-Fix:
-V48 backend worked, but the visual top panel did not appear in the dashboard template.
+Problem fixed:
+If the system says SCALP BUY / ENTER BUY and the user enters, then later the pro panel says DO NOT ENTER,
+that DO NOT ENTER should mean "do not open a new trade", not "manage/close existing trade".
 
-V49 force-adds a fixed top Pro Trader bar:
-- Always visible at the top
-- Populated directly from /api/v49/signals
-- Shows each asset decision, reason, buy above, sell below, risk/reward
-- Works even if the old card template does not include the injected panel
+V50 adds:
+- Open trade state
+- Dashboard buttons: I ENTERED BUY / I ENTERED SELL / CLOSE TRADE
+- Pro panel changes to MANAGE OPEN BUY / MANAGE OPEN SELL after entry is recorded
+- Management messages:
+  - protect profit
+  - move stop
+  - close partial
+  - exit if invalidation hit
+- API:
+  - /api/v50/trade/open
+  - /api/v50/trade/close
+  - /api/v50/trade/status
 
 Use:
 - /dashboard
-- /api/v49/signals
-- /api/v49/pro-panel
+- /api/v50/signals
+- /api/v50/pro-panel
