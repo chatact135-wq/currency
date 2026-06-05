@@ -1,4 +1,4 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MarketMind AI V47</title>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MarketMind AI V48</title>
 <style>
 body{margin:0;font-family:Arial;background:#06101f;color:#eef6ff}header{padding:22px;background:#07111f;border-bottom:1px solid #345985;position:sticky;top:0}h1{margin:0}.sub,.status,.small{color:#9fb2cc}.wrap{max-width:1600px;margin:auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:18px}.card{background:linear-gradient(160deg,#101d31,#173457);border:1px solid #3a68a0;border-radius:20px;padding:20px}.top{display:flex;justify-content:space-between}.asset{font-size:25px;font-weight:800}.price{font-size:28px;margin-top:12px}.pill{border-radius:999px;padding:10px 14px;font-weight:900}.buy{color:#2ed47a;border:1px solid #2ed47a}.sell{color:#ff6464;border:1px solid #ff6464}.wait{color:#f2c94c;border:1px solid #f2c94c}.warn{margin-top:14px;padding:12px;border-radius:12px;background:rgba(255,197,66,.12);color:#ffe0a3}.boxes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.box{background:rgba(255,255,255,.05);border-radius:13px;padding:11px}.label{color:#9fb2cc;font-size:12px}.val{font-size:18px;font-weight:800;margin-top:5px}.title{margin-top:18px;color:#58a6ff;font-weight:900}.alert{margin-top:8px;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px}.alert.sell{color:#ffd6d6}.alert.buy{color:#d6ffe8}.alert.neutral{color:#fff0b8}.err{border-color:#ff7676}.errorbox{color:#ffd2d2}
 </style>
@@ -102,7 +102,84 @@ body{margin:0;font-family:Arial;background:#06101f;color:#eef6ff}header{padding:
 .pro-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;font-size:12px}
 .pro-k{color:#94a3b8}.pro-v{font-weight:700}
 </style>
+
+<style>
+.top-pro-wrap{
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  background: linear-gradient(180deg, rgba(2,6,23,.98), rgba(15,23,42,.94));
+  border-bottom: 2px solid rgba(96,165,250,.55);
+  padding: 12px 14px;
+  margin: -8px -8px 16px -8px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
+}
+.top-pro-title{
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: .7px;
+  color: #e5f2ff;
+  margin-bottom: 8px;
+}
+.top-pro-grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.top-pro-card{
+  border: 1px solid rgba(96,165,250,.55);
+  background: rgba(15, 23, 42, .88);
+  border-radius: 14px;
+  padding: 12px;
+}
+.top-pro-asset{
+  font-size: 15px;
+  color: #bfdbfe;
+  font-weight: 800;
+}
+.top-pro-decision{
+  font-size: 26px;
+  line-height: 1.05;
+  font-weight: 950;
+  margin: 5px 0 7px 0;
+  letter-spacing: .8px;
+}
+.top-pro-decision.enter{color:#22c55e}
+.top-pro-decision.scalp{color:#38bdf8}
+.top-pro-decision.wait{color:#facc15}
+.top-pro-decision.no{color:#fb7185}
+.top-pro-reason{
+  color:#cbd5e1;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.top-pro-levels{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+  font-size:12px;
+}
+.top-pro-box{
+  background: rgba(30,41,59,.9);
+  border-radius: 10px;
+  padding: 7px;
+}
+.top-pro-k{color:#94a3b8;font-size:11px}
+.top-pro-v{color:#e2e8f0;font-size:14px;font-weight:800}
+@media(max-width:760px){
+  .top-pro-grid{grid-template-columns:1fr}
+  .top-pro-decision{font-size:23px}
+  .top-pro-title{font-size:18px}
+}
+</style>
+
 </head><body>
+
+<div class="top-pro-wrap">
+  <div class="top-pro-title">PRO TRADER DECISION — LOOK HERE FIRST</div>
+  <div class="small">Trade only when decision says ENTER BUY / ENTER SELL / SCALP BUY / SCALP SELL. Ignore WATCH.</div>
+</div>
+
 <div class="forex-only-banner"><b>Professional Trader Panel:</b> The program checks details in the background. You only follow the Pro Trader Decision: ENTER, SCALP, WAIT, or DO NOT ENTER.</div>
 <div class="forex-only-banner"><b>Scalp Entry:</b> Shows both BUY above and SELL below values with distance in moves. Do not trade from WATCH unless scalp or master decision allows it.</div>
 <div class="forex-only-banner"><b>Trigger Lock:</b> Once a buy/sell trigger appears, it locks. It will not keep moving away every refresh.</div>
@@ -116,7 +193,7 @@ body{margin:0;font-family:Arial;background:#06101f;color:#eef6ff}header{padding:
 <div class="forex-only-banner">
 <b>Strong Move Rule:</b> A big move is not always a new entry. If you are already in the same direction, protect profit. If you are not in, do not enter late; wait for price to come back to a better area.
 </div>
-<div class="forex-only-banner"><b>Pro Trader Panel:</b> If the system changes from buy to sell or sell to buy too quickly, it will wait first. This avoids confusing fast flips.</div>
+<div class="forex-only-banner"><b>Top Pro Trader Panel:</b> If the system changes from buy to sell or sell to buy too quickly, it will wait first. This avoids confusing fast flips.</div>
 <div class="forex-only-banner">
 <b>Simple words guide:</b>
 Price came back a little = price moved one way then returned a bit.
@@ -128,7 +205,7 @@ Do not enter late = the move already happened.
 
 
 <div class="usage-panel" id="apiUsagePanel">
-  <b>📊 Pro Trader Panel</b>
+  <b>📊 Top Pro Trader Panel</b>
   <div class="usage-grid">
     <div class="usage-box"><b>This refresh</b><span id="usageRefresh">-</span></div>
     <div class="usage-box"><b>Per minute</b><span id="usageMinute">-</span></div>
@@ -152,7 +229,7 @@ Do not enter late = the move already happened.
     <div class="alert-empty">No alerts loaded yet.</div>
   </div>
 </div>
-<header><h1>MarketMind AI V47 — Pro Trader Panel</h1><div class="sub">Precision trigger • adaptive edge • clear exit rules</div><div id="status" class="status">Loading...</div></header><div class="wrap"><div id="grid" class="grid"></div></div>
+<header><h1>MarketMind AI V48 — Top Pro Trader Panel</h1><div class="sub">Precision trigger • adaptive edge • clear exit rules</div><div id="status" class="status">Loading...</div></header><div class="wrap"><div id="grid" class="grid"></div></div>
 <script>
 const refresh={{ refresh }};let sigs=[];const grid=document.getElementById("grid"),status=document.getElementById("status");
 function fmt(sec){sec=Math.max(0,Math.floor(sec||0));let m=Math.floor(sec/60),s=sec%60;return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
@@ -192,7 +269,7 @@ ${s.move_completion.management_message??""}<br>
 ${s.move_completion.reasons && s.move_completion.reasons.length ? s.move_completion.reasons.map(x=>"• "+x).join("<br>") : ""}
 <br><small>${s.move_completion.moves_note??""}</small>
 ` : "No move completion data yet."}</div><div class="pro-panel">
-<div class="title">PRO TRADER DECISION — TRUST THIS</div>
+<div class="title">PRO TRADER DECISION — TRUST THIS ONLY</div>
 <div class="pro-decision">${s.pro_panel ? s.pro_panel.decision : "NO DATA"}</div>
 <div class="small">${s.pro_panel ? s.pro_panel.reason : "No professional decision yet."}</div>
 <div class="pro-grid">${s.pro_panel ? `
@@ -277,7 +354,7 @@ ${s.trade_readiness.headline}<br>
 Entry: ${s.trade_readiness.entry??"-"} • SL: ${s.trade_readiness.stop_loss??"-"} • TP1: ${s.trade_readiness.tp1??"-"}<br>
 Mode: ${s.trade_readiness.mode}
 ` : "No readiness score yet."}</div><div class="title">PERSISTENT EXPIRY</div><div class="small">${s.signal_memory ? `Status: ${s.signal_memory.status}<br>Time left: ${s.signal_memory.minutes_left??"-"} min<br>Expires: ${s.signal_memory.expires_at??"-"}<br>${s.signal_memory.message??""}` : "No signal memory yet."}</div><div class="title">SIMPLE TRADE PLAN</div><div class="small">${s.market_map && s.market_map.simple_trade_plan ? `<b>${s.market_map.simple_trade_plan.headline}</b><br>${s.market_map.simple_trade_plan.simple_steps.join("<br>")}` : ""}</div><div class="title">MARKET MAP</div><div class="small">${s.market_map ? `Command: ${s.market_map.trade_map.command}<br>Buy switch: ${s.market_map.switch_levels.buy_switch} (${s.market_map.switch_levels.buy_distance_pips} pips)<br>Sell switch: ${s.market_map.switch_levels.sell_switch} (${s.market_map.switch_levels.sell_distance_pips} pips)<br>Aggressive entry: ${s.market_map.trade_map.aggressive_entry??"-"}<br>Safe entry: ${s.market_map.trade_map.safe_entry??"-"}<br>SL: ${s.market_map.trade_map.stop_loss??"-"} • TP1: ${s.market_map.trade_map.tp1_partial_close??"-"} • TP2: ${s.market_map.trade_map.tp2??"-"} • Full: ${s.market_map.trade_map.full_close??"-"}<br>${s.market_map.switch_levels.flip_rule}` : ""}</div><div class="title">Logic</div><div class="small">${s.logic_note}</div></div>`}
-async function load(){status.textContent="Updating V47 signals...";try{let r=await fetch("/api/v47/signals",{cache:"no-store"});
+async function load(){status.textContent="Updating V48 signals...";try{let r=await fetch("/api/v48/signals",{cache:"no-store"});
 let raw=await r.text();
 if(!r.ok){throw new Error(`API ${r.status}: ${raw.slice(0,500)}`);}
 let d;
@@ -348,7 +425,7 @@ async function fetchDashboardAlerts(){
   const banner = document.getElementById("latestAlertBanner");
   if(!list) return;
   try{
-    const r = await fetch("/api/v47/alerts", {cache:"no-store"});
+    const r = await fetch("/api/v48/alerts", {cache:"no-store"});
     const data = await r.json();
     const alerts = data.alerts || [];
     if(status){
@@ -393,7 +470,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 <script>
 async function fetchApiUsage(){
   try{
-    const r = await fetch("/api/v47/usage?refresh_seconds=10", {cache:"no-store"});
+    const r = await fetch("/api/v48/usage?refresh_seconds=10", {cache:"no-store"});
     const u = await r.json();
     const est = u.estimate || {};
     const lr = u.last_refresh || {};

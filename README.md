@@ -1,35 +1,15 @@
-# MarketMind AI V47 — Professional Trader Panel
+# MarketMind AI V48 — Top Pro Trader Panel
 
 Purpose:
-Make the dashboard simple like a professional trader screen.
+Make the professional trader decision visible immediately at the top of the dashboard.
 
-Instead of many confusing sections, V47 adds one trusted panel:
-
-TRADE DECISION:
-- ENTER BUY
-- ENTER SELL
-- SCALP BUY
-- SCALP SELL
-- WAIT
-- DO NOT ENTER
-- MANAGE TRADE
-
-Shows only:
-- main reason
-- current price
-- buy above
-- sell below
-- entry
-- stop/cancel
-- target
-- risk in moves
-- reward in moves
-- R/R
-
-The system still checks all filters in the background.
+Adds:
+- Sticky top professional decision bar
+- Large visible decision cards for EUR/USD and GBP/USD
+- Decision, reason, buy above, sell below, risk/reward
+- Hide complicated old sections behind the top final decision visually
 
 Use:
 - /dashboard
-- /api/v47/signals
-- /api/v47/pro-panel
-- /api/v47/usage
+- /api/v48/signals
+- /api/v48/pro-panel
