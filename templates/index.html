@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Upload BID/ASK CSV Files</h2>
+  <p>
+    Upload real historical data files. Use BID and ASK files together.
+    Example:
+  </p>
+  <pre>EUR-USD_1Minute_BID_2026-06-02...
+EUR-USD_1Minute_ASK_2026-06-02...</pre>
+
+  <form action="/run" method="post" enctype="multipart/form-data">
+    <input type="file" name="files" multiple accept=".csv">
+    <button type="submit">Run Backtest</button>
+  </form>
+</section>
+
+<section class="grid">
+  <div class="card">
+    <h3>What this lab tests</h3>
+    <ul>
+      <li>Fast Impulse Breakout</li>
+      <li>Fast Reversal</li>
+      <li>Pullback Continuation</li>
+      <li>Spread-aware entries</li>
+      <li>Stop/target simulation</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Professional rule</h3>
+    <p>
+      No strategy should be used live until it survives real-data testing.
+      This lab is for proof, not guessing.
+    </p>
+  </div>
+</section>
+{% endblock %}
