@@ -86,3 +86,19 @@ Recommended rules:
 - Max 1–2 trades per day.
 - Stop after 2 losses.
 - No trade when command is PLAN ONLY / NO TRADE / MOVE MISSED.
+
+## V1.2 Signal Database + Strategy Review
+
+Added SQLite database:
+- runtime_data/edgeflow_signals.db
+
+New pages:
+- /review
+
+New APIs:
+- /api/signal-db
+- /api/review-signals
+- /api/reviews
+- /api/strategy-performance
+
+The system now saves every command and later reviews what happened after 15m / 1h / 4h.

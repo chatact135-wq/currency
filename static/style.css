@@ -38,3 +38,9 @@ pre{white-space:pre-wrap;background:#020617;border-radius:12px;padding:12px}
  .top{display:block}
  .command{text-align:left;margin-top:12px}
 }
+
+.button-link{display:inline-block;background:#2563eb;color:white;text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:900}
+.table-wrap{overflow:auto;max-height:620px}
+.data-table{border-collapse:collapse;width:100%;font-size:12px}
+.data-table th,.data-table td{border:1px solid rgba(148,163,184,.25);padding:6px;vertical-align:top}
+.data-table th{background:#0b1424;color:#bfdbfe;position:sticky;top:0}

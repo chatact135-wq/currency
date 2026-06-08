@@ -14,9 +14,12 @@ from edgeflow.config import APP_NAME, SYMBOLS, REFRESH_SECONDS
 from edgeflow.data_provider import fetch_twelvedata_candles, fallback_demo_data, DataError
 from edgeflow.strategy_engine import analyze_symbol
 from edgeflow.journal import log_signal, get_journal, mark_entered, close_trade, get_open_trades, manage_trade
+from edgeflow.signal_db import save_signal, list_signals, list_reviews, strategy_performance, init_db
+from edgeflow.signal_reviewer import review_due_signals
 
 BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title=APP_NAME)
+init_db()
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -47,6 +50,7 @@ async def analyze_all() -> dict:
         results[symbol] = signal
         _LAST_SIGNALS[symbol] = signal
         log_signal(symbol, signal)
+        save_signal(symbol, signal)
     return results
 
 
@@ -101,6 +105,27 @@ async def close(symbol: str = Form(...)):
     close_trade(symbol)
     return RedirectResponse(url="/dashboard", status_code=303)
 
+
+
+@app.get("/api/signal-db")
+async def api_signal_db(limit: int = 200):
+    return {"signals": list_signals(limit=limit)}
+
+@app.post("/api/review-signals")
+async def api_review_signals():
+    return await review_due_signals()
+
+@app.get("/api/reviews")
+async def api_reviews(limit: int = 300):
+    return {"reviews": list_reviews(limit=limit)}
+
+@app.get("/api/strategy-performance")
+async def api_strategy_performance():
+    return {"performance": strategy_performance()}
+
+@app.get("/review", response_class=HTMLResponse)
+async def review_page(request: Request):
+    return templates.TemplateResponse("review.html", {"request": request, "app_name": APP_NAME})
 
 @app.get("/debug")
 async def debug():

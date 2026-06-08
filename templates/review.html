@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Signal Review — EdgeFlow Terminal Pro</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1>Signal Database + Strategy Review</h1>
+    <p>Every signal is saved and reviewed after 15m / 1h / 4h.</p>
+  </div>
+  <div class="badge">REVIEW MODE</div>
+</header>
+<section class="notice">
+  <b>Purpose:</b> Compare what the system said with what the chart did later.
+  <div class="notify-row">
+    <button onclick="runReview()">Review Due Signals Now</button>
+    <a class="button-link" href="/dashboard">Back to Dashboard</a>
+  </div>
+</section>
+<main>
+  <article class="card"><h2>Strategy Performance</h2><div id="performance">Loading...</div></article>
+  <article class="card"><h2>Latest Reviews</h2><div id="reviews">Loading...</div></article>
+  <article class="card"><h2>Latest Saved Signals</h2><div id="signals">Loading...</div></article>
+</main>
+<script>
+function table(rows){
+  if(!rows || rows.length===0) return "<p>No data yet.</p>";
+  const cols=Object.keys(rows[0]);
+  return `<div class="table-wrap"><table class="data-table"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${r[c] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+async function load(){
+  const perf=await fetch("/api/strategy-performance").then(r=>r.json());
+  document.getElementById("performance").innerHTML=table(perf.performance);
+  const rev=await fetch("/api/reviews?limit=100").then(r=>r.json());
+  document.getElementById("reviews").innerHTML=table(rev.reviews);
+  const sig=await fetch("/api/signal-db?limit=100").then(r=>r.json());
+  const slim=sig.signals.map(s=>({id:s.id,time:s.created_at,symbol:s.symbol,command:s.command,strategy:s.strategy,direction:s.direction,mode:s.market_mode,price:s.price,entry:s.entry,stop:s.stop,target:s.target,rr:s.rr,reason:s.reason}));
+  document.getElementById("signals").innerHTML=table(slim);
+}
+async function runReview(){
+  const r=await fetch("/api/review-signals",{method:"POST"}).then(r=>r.json());
+  alert(`Reviewed ${r.reviewed_count} signals`);
+  load();
+}
+load(); setInterval(load,30000);
+</script>
+</body>
+</html>
