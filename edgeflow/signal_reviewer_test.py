@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 import pandas as pd
-from .signal_db import list_signals, save_review
+from .signal_db_test import list_signals, save_review
 from .data_provider import fetch_twelvedata_candles, fallback_demo_data
 
 HORIZONS = {"15m": 15, "1h": 60, "4h": 240}

@@ -5,7 +5,7 @@ import sqlite3, json
 
 DB_DIR = Path("runtime_data")
 DB_DIR.mkdir(exist_ok=True)
-DB_PATH = DB_DIR / "edgeflow_signals.db"
+DB_PATH = DB_DIR / "edgeflow_signals_test.db"
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
@@ -65,7 +65,7 @@ def save_signal(symbol, signal):
     init_db()
     market = signal.get("market_mode") or {}
     created = now_iso()
-    bucket = created[:15]
+    bucket = created[:14] + str((int(created[14:16]) // 5) * 5).zfill(2)  # 5-minute test cooldown bucket
     unique_key = f"{bucket}|{symbol}|{signal.get('command')}|{signal.get('strategy')}|{signal.get('direction')}|{signal.get('entry')}|{signal.get('stop')}|{signal.get('target')}"
     try:
         with connect() as con:

@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Signal Review — EdgeFlow Terminal Pro</title>
+  <title>Signal Review — EdgeFlow Test V2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -18,7 +18,7 @@
   <b>Purpose:</b> Compare what the system said with what the chart did later.
   <div class="notify-row">
     <button onclick="runReview()">Review Due Signals Now</button>
-    <a class="button-link" href="/dashboard">Back to Dashboard</a>
+    <a class="button-link" href="/test">Back to Test Dashboard</a>
   </div>
 </section>
 <main>
@@ -33,11 +33,11 @@ function table(rows){
   return `<div class="table-wrap"><table class="data-table"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${r[c] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 async function load(){
-  const perf=await fetch("/api/strategy-performance").then(r=>r.json());
+  const perf=await fetch("/test/api/strategy-performance").then(r=>r.json());
   document.getElementById("performance").innerHTML=table(perf.performance);
   const rev=await fetch("/api/reviews?limit=100").then(r=>r.json());
   document.getElementById("reviews").innerHTML=table(rev.reviews);
-  const sig=await fetch("/api/signal-db?limit=100").then(r=>r.json());
+  const sig=await fetch("/test/api/signal-db?limit=100").then(r=>r.json());
   const slim=sig.signals.map(s=>({id:s.id,time:s.created_at,symbol:s.symbol,command:s.command,strategy:s.strategy,direction:s.direction,mode:s.market_mode,price:s.price,entry:s.entry,stop:s.stop,target:s.target,rr:s.rr,reason:s.reason}));
   document.getElementById("signals").innerHTML=table(slim);
 }
