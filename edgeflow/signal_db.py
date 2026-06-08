@@ -59,7 +59,39 @@ def init_db():
             UNIQUE(signal_id, review_horizon)
         )
         """)
+        con.execute("""
+        CREATE TABLE IF NOT EXISTS price_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            price REAL,
+            source TEXT,
+            command TEXT,
+            strategy TEXT,
+            market_mode TEXT,
+            payload_json TEXT
+        )
+        """)
         con.commit()
+
+def save_price_snapshot(symbol, signal):
+    init_db()
+    market = signal.get("market_mode") or {}
+    with connect() as con:
+        con.execute("""
+        INSERT INTO price_snapshots (created_at, symbol, price, source, command, strategy, market_mode, payload_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (now_iso(), symbol, signal.get("price"), signal.get("source"), signal.get("command"), signal.get("strategy"), market.get("mode"), json.dumps(signal, default=str, ensure_ascii=False)))
+        con.commit()
+
+def list_price_snapshots(symbol=None, start_time=None, end_time=None, limit=2000):
+    init_db(); q="SELECT * FROM price_snapshots WHERE 1=1"; args=[]
+    if symbol: q += " AND symbol = ?"; args.append(symbol)
+    if start_time: q += " AND created_at > ?"; args.append(start_time)
+    if end_time: q += " AND created_at <= ?"; args.append(end_time)
+    q += " ORDER BY created_at ASC LIMIT ?"; args.append(limit)
+    with connect() as con: rows=con.execute(q,args).fetchall()
+    return [dict(r) for r in rows]
 
 def save_signal(symbol, signal):
     init_db()

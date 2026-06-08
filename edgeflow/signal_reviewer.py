@@ -1,106 +1,61 @@
 from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 import pandas as pd
-from .signal_db import list_signals, save_review
+from .signal_db import list_signals, save_review, list_price_snapshots
 from .data_provider import fetch_twelvedata_candles, fallback_demo_data
-
-HORIZONS = {"15m": 15, "1h": 60, "4h": 240}
-
+HORIZONS={"15m":15,"1h":60,"4h":240}
 def _parse_time(s):
-    return datetime.fromisoformat(s.replace("Z", "+00:00"))
-
-def _classify(signal, future):
-    command=(signal.get("command") or "").upper()
-    direction=(signal.get("direction") or "").upper()
-    entry=signal.get("entry") or signal.get("price")
-    stop=signal.get("stop")
-    target=signal.get("target")
-    if future.empty or entry is None:
-        return {"outcome":"NO DATA","notes":"No future candles available yet."}
-    entry=float(entry)
-    price_after=float(future["close"].iloc[-1])
-    high=float(future["high"].max())
-    low=float(future["low"].min())
-    if direction=="BUY":
-        max_fav=(high-entry)/0.00001
-        max_adv=(entry-low)/0.00001
-        tp_hit=bool(target is not None and high>=float(target))
-        sl_hit=bool(stop is not None and low<=float(stop))
-        final_dir=(price_after-entry)/0.00001
-    elif direction=="SELL":
-        max_fav=(entry-low)/0.00001
-        max_adv=(high-entry)/0.00001
-        tp_hit=bool(target is not None and low<=float(target))
-        sl_hit=bool(stop is not None and high>=float(stop))
-        final_dir=(entry-price_after)/0.00001
+    dt=datetime.fromisoformat(str(s).replace('Z','+00:00'))
+    if dt.tzinfo is None: dt=dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+def _classify(signal, rows):
+    cmd=(signal.get('command') or '').upper(); direction=(signal.get('direction') or '').upper()
+    entry=signal.get('entry') or signal.get('price'); stop=signal.get('stop'); target=signal.get('target')
+    vals=[float(r['price']) for r in rows if r.get('price') is not None]
+    if not vals or entry is None: return {'outcome':'NO DATA','notes':'No future price snapshots/candles available yet.'}
+    entry=float(entry); price_after=vals[-1]; high=max(vals); low=min(vals)
+    if direction=='BUY':
+        fav=(high-entry)/0.00001; adv=(entry-low)/0.00001; tp=bool(target is not None and high>=float(target)); sl=bool(stop is not None and low<=float(stop)); final=(price_after-entry)/0.00001
+    elif direction=='SELL':
+        fav=(entry-low)/0.00001; adv=(high-entry)/0.00001; tp=bool(target is not None and low<=float(target)); sl=bool(stop is not None and high>=float(stop)); final=(entry-price_after)/0.00001
     else:
-        max_fav=max_adv=None; tp_hit=sl_hit=False; final_dir=0
-
-    if "SCALP NOW" in command or "TRADE NOW" in command:
-        if tp_hit and not sl_hit:
-            outcome="TP HIT"; notes="Target was reached."
-        elif sl_hit and not tp_hit:
-            outcome="SL HIT"; notes="Stop was hit."
-        elif tp_hit and sl_hit:
-            outcome="AMBIGUOUS"; notes="Both TP and SL touched; tick data needed."
-        elif final_dir>=10:
-            outcome="GOOD DIRECTION"; notes="Moved in correct direction but did not hit target."
-        elif final_dir<=-10:
-            outcome="WRONG DIRECTION"; notes="Moved against signal."
-        else:
-            outcome="FLAT / NO FOLLOW THROUGH"; notes="No meaningful movement."
-    elif "NO TRADE" in command or "PLAN ONLY" in command or "MISSED" in command:
-        if direction=="BUY" and max_fav is not None and max_fav>=30:
-            outcome="MISSED BUY MOVE"; notes="No entry, but price moved up strongly."
-        elif direction=="SELL" and max_fav is not None and max_fav>=30:
-            outcome="MISSED SELL MOVE"; notes="No entry, but price moved down strongly."
-        else:
-            outcome="GOOD BLOCK / NO CLEAR MOVE"; notes="No major missed move detected."
-    else:
-        outcome="UNCLASSIFIED"; notes="Command not classified."
-
-    return {
-        "price_after": round(price_after,5),
-        "max_favorable_moves": round(max_fav,1) if max_fav is not None else None,
-        "max_adverse_moves": round(max_adv,1) if max_adv is not None else None,
-        "tp_hit": tp_hit,
-        "sl_hit": sl_hit,
-        "outcome": outcome,
-        "notes": notes
-    }
-
+        fav=adv=None; tp=sl=False; final=0
+    if 'SCALP NOW' in cmd or 'TRADE NOW' in cmd:
+        if tp and not sl: outcome,notes='TP HIT','Target was reached.'
+        elif sl and not tp: outcome,notes='SL HIT','Stop was hit.'
+        elif tp and sl: outcome,notes='AMBIGUOUS','Both TP and SL touched; tick data needed.'
+        elif final>=10: outcome,notes='GOOD DIRECTION','Moved in correct direction but did not hit target.'
+        elif final<=-10: outcome,notes='WRONG DIRECTION','Moved against signal.'
+        else: outcome,notes='FLAT / NO FOLLOW THROUGH','No meaningful movement.'
+    elif 'NO TRADE' in cmd or 'PLAN ONLY' in cmd or 'MISSED' in cmd:
+        if direction=='BUY' and fav is not None and fav>=30: outcome,notes='MISSED BUY MOVE','No entry, but price moved up strongly.'
+        elif direction=='SELL' and fav is not None and fav>=30: outcome,notes='MISSED SELL MOVE','No entry, but price moved down strongly.'
+        else: outcome,notes='GOOD BLOCK / NO CLEAR MOVE','No major missed move detected.'
+    else: outcome,notes='UNCLASSIFIED','Command not classified.'
+    return {'price_after':round(price_after,5),'max_favorable_moves':round(fav,1) if fav is not None else None,'max_adverse_moves':round(adv,1) if adv is not None else None,'tp_hit':tp,'sl_hit':sl,'outcome':outcome,'notes':notes}
 async def review_due_signals():
-    reviewed=[]
-    signals=list_signals(limit=500)
-    now=datetime.now(timezone.utc)
-    data_by_symbol={}
+    reviewed=[]; signals=list_signals(limit=700); now=datetime.now(timezone.utc); candles={}
     for s in signals:
-        sym=s["symbol"]
-        if sym not in data_by_symbol:
-            try:
-                data_by_symbol[sym]=await fetch_twelvedata_candles(sym,"1min",500)
-            except Exception:
-                data_by_symbol[sym]=fallback_demo_data(sym)
-    for s in signals:
-        created=_parse_time(s["created_at"])
-        age_min=(now-created).total_seconds()/60
-        df=data_by_symbol.get(s["symbol"])
-        if df is None or df.empty:
-            continue
-        df=df.copy()
-        times=pd.to_datetime(df["time"], errors="coerce")
-        try:
-            if times.dt.tz is None:
-                times=times.dt.tz_localize("UTC")
-        except Exception:
-            pass
-        df["time2"]=times
-        for label, mins in HORIZONS.items():
-            if age_min < mins:
-                continue
-            end_time=created+timedelta(minutes=mins)
-            future=df[(df["time2"]>created)&(df["time2"]<=end_time)]
-            review=_classify(s,future)
-            save_review(int(s["id"]), label, review)
-            reviewed.append({"signal_id":s["id"],"horizon":label,"outcome":review.get("outcome")})
-    return {"reviewed_count":len(reviewed),"reviewed":reviewed[:100]}
+        created=_parse_time(s['created_at']); age=(now-created).total_seconds()/60; sym=s['symbol']
+        for label,mins in HORIZONS.items():
+            if age<mins: continue
+            end=created+timedelta(minutes=mins)
+            rows=list_price_snapshots(symbol=sym,start_time=created.isoformat(),end_time=end.isoformat(),limit=2000)
+            review=_classify(s, rows)
+            if review.get('outcome')=='NO DATA':
+                if sym not in candles:
+                    try: candles[sym]=await fetch_twelvedata_candles(sym,'1min',500)
+                    except Exception: candles[sym]=fallback_demo_data(sym)
+                df=candles.get(sym)
+                if df is not None and not df.empty:
+                    dfx=df.copy(); times=pd.to_datetime(dfx['time'], errors='coerce')
+                    try:
+                        if times.dt.tz is None: times=times.dt.tz_localize('UTC')
+                    except Exception: pass
+                    dfx['time2']=times
+                    fut=dfx[(dfx['time2']>created)&(dfx['time2']<=end)]
+                    rows2=[{'price':float(r.close)} for r in fut.itertuples()]
+                    r2=_classify(s, rows2)
+                    if r2.get('outcome')!='NO DATA': r2['notes']=str(r2.get('notes',''))+' Used candle fallback.'; review=r2
+            save_review(int(s['id']),label,review); reviewed.append({'signal_id':s['id'],'horizon':label,'outcome':review.get('outcome')})
+    return {'reviewed_count':len(reviewed),'reviewed':reviewed[:100]}

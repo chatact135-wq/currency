@@ -14,7 +14,7 @@ from edgeflow.config import APP_NAME, SYMBOLS, REFRESH_SECONDS
 from edgeflow.data_provider import fetch_twelvedata_candles, fallback_demo_data, DataError
 from edgeflow.strategy_engine import analyze_symbol
 from edgeflow.journal import log_signal, get_journal, mark_entered, close_trade, get_open_trades, manage_trade
-from edgeflow.signal_db import save_signal, list_signals, list_reviews, strategy_performance, init_db
+from edgeflow.signal_db import save_signal, save_price_snapshot, list_signals, list_reviews, strategy_performance, init_db
 from edgeflow.signal_reviewer import review_due_signals
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -51,6 +51,7 @@ async def analyze_all() -> dict:
         _LAST_SIGNALS[symbol] = signal
         log_signal(symbol, signal)
         save_signal(symbol, signal)
+        save_price_snapshot(symbol, signal)
     return results
 
 

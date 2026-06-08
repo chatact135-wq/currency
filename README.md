@@ -102,3 +102,10 @@ New APIs:
 - /api/strategy-performance
 
 The system now saves every command and later reviews what happened after 15m / 1h / 4h.
+
+
+## V1.3 Review Fixed
+- Saves live price snapshots every refresh.
+- Reviews saved signals using snapshots first.
+- Uses TwelveData candles as backup.
+- This reduces NO DATA results.
