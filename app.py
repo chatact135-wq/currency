@@ -225,3 +225,162 @@ async def test_entered(symbol: str = Form(...), direction: str = Form(...), entr
 async def test_close(symbol: str = Form(...)):
     close_trade(symbol)
     return RedirectResponse(url="/test/dashboard", status_code=303)
+
+# =========================
+# TEST-A and TEST-B COMPARISON SYSTEMS
+# /test-a = Conservative trend-aligned system
+# /test-b = Controlled momentum system
+# Each system has its own dashboard, review page, API endpoints, and SQLite database.
+# =========================
+from edgeflow.strategy_engine_test_a import analyze_symbol as analyze_symbol_test_a
+from edgeflow.strategy_engine_test_b import analyze_symbol as analyze_symbol_test_b
+from edgeflow.signal_db_test_a import save_signal as save_signal_test_a, list_signals as list_signals_test_a, list_reviews as list_reviews_test_a, strategy_performance as strategy_performance_test_a, init_db as init_db_test_a
+from edgeflow.signal_db_test_b import save_signal as save_signal_test_b, list_signals as list_signals_test_b, list_reviews as list_reviews_test_b, strategy_performance as strategy_performance_test_b, init_db as init_db_test_b
+from edgeflow.signal_reviewer_test_a import review_due_signals as review_due_signals_test_a
+from edgeflow.signal_reviewer_test_b import review_due_signals as review_due_signals_test_b
+
+init_db_test_a()
+init_db_test_b()
+_LAST_TEST_A_SIGNALS: Dict[str, dict] = {}
+_LAST_TEST_B_SIGNALS: Dict[str, dict] = {}
+
+async def analyze_all_test_variant(analyzer, saver, last_store: Dict[str, dict], system_version: str) -> dict:
+    results = {}
+    for symbol in SYMBOLS:
+        try:
+            df = await fetch_twelvedata_candles(symbol, "1min", 200)
+            source = "TwelveData live"
+            error = None
+        except Exception as e:
+            df = fallback_demo_data(symbol)
+            source = "DEMO FALLBACK — NOT FOR TRADING"
+            error = str(e)
+
+        signal = analyzer(symbol, df)
+        current = signal.get("price") or float(df["close"].iloc[-1])
+        manager = manage_trade(symbol, current)
+        signal["symbol"] = symbol
+        signal["source"] = source
+        signal["data_error"] = error
+        signal["open_trade_manager"] = manager
+        signal["system_version"] = system_version
+        results[symbol] = signal
+        last_store[symbol] = signal
+        saver(symbol, signal)
+    return results
+
+# ---------- TEST-A: Conservative ----------
+@app.get("/test-a/health")
+async def test_a_health():
+    return {"status": "ok", "app": APP_NAME, "mode": "TEST-A Conservative", "database": "runtime_data/edgeflow_signals_test_a.db"}
+
+@app.get("/test-a", response_class=HTMLResponse)
+@app.get("/test-a/dashboard", response_class=HTMLResponse)
+async def test_a_dashboard(request: Request):
+    return templates.TemplateResponse("dashboard_test_a.html", {
+        "request": request,
+        "app_name": APP_NAME + " — TEST-A Conservative",
+        "subtitle": "/test-a — Conservative trend-aligned logic. Pullback + Break/Retest only. No momentum upgrade.",
+        "refresh_seconds": REFRESH_SECONDS,
+        "health_url": "/test-a/health",
+        "api_signals_url": "/test-a/api/signals",
+        "review_url": "/test-a/review",
+        "entered_url": "/test-a/entered",
+        "close_url": "/test-a/close",
+    })
+
+@app.get("/test-a/api/signals")
+async def test_a_api_signals():
+    try:
+        results = await analyze_all_test_variant(analyze_symbol_test_a, save_signal_test_a, _LAST_TEST_A_SIGNALS, "TEST-A Conservative")
+        return {"status": "ok", "refresh_seconds": REFRESH_SECONDS, "signals": results, "system_version": "TEST-A Conservative"}
+    except Exception:
+        return JSONResponse({"status": "error", "traceback": traceback.format_exc()}, status_code=500)
+
+@app.get("/test-a/api/signal-db")
+async def test_a_api_signal_db(limit: int = 200):
+    return {"signals": list_signals_test_a(limit=limit)}
+
+@app.post("/test-a/api/review-signals")
+async def test_a_api_review_signals():
+    return await review_due_signals_test_a()
+
+@app.get("/test-a/api/reviews")
+async def test_a_api_reviews(limit: int = 300):
+    return {"reviews": list_reviews_test_a(limit=limit)}
+
+@app.get("/test-a/api/strategy-performance")
+async def test_a_api_strategy_performance():
+    return {"performance": strategy_performance_test_a()}
+
+@app.get("/test-a/review", response_class=HTMLResponse)
+async def test_a_review_page(request: Request):
+    return templates.TemplateResponse("review_test_a.html", {"request": request, "app_name": APP_NAME + " — TEST-A Conservative", "api_base": "/test-a/api", "dashboard_url": "/test-a"})
+
+@app.post("/test-a/entered")
+async def test_a_entered(symbol: str = Form(...), direction: str = Form(...), entry: float = Form(...), stop: float = Form(...), target: float = Form(...)):
+    mark_entered(symbol, direction, entry, stop, target)
+    return RedirectResponse(url="/test-a/dashboard", status_code=303)
+
+@app.post("/test-a/close")
+async def test_a_close(symbol: str = Form(...)):
+    close_trade(symbol)
+    return RedirectResponse(url="/test-a/dashboard", status_code=303)
+
+# ---------- TEST-B: Controlled Momentum ----------
+@app.get("/test-b/health")
+async def test_b_health():
+    return {"status": "ok", "app": APP_NAME, "mode": "TEST-B Controlled Momentum", "database": "runtime_data/edgeflow_signals_test_b.db"}
+
+@app.get("/test-b", response_class=HTMLResponse)
+@app.get("/test-b/dashboard", response_class=HTMLResponse)
+async def test_b_dashboard(request: Request):
+    return templates.TemplateResponse("dashboard_test_b.html", {
+        "request": request,
+        "app_name": APP_NAME + " — TEST-B Controlled Momentum",
+        "subtitle": "/test-b — Trend-aligned Pullback + Break/Retest + controlled Momentum Confirmation upgrade.",
+        "refresh_seconds": REFRESH_SECONDS,
+        "health_url": "/test-b/health",
+        "api_signals_url": "/test-b/api/signals",
+        "review_url": "/test-b/review",
+        "entered_url": "/test-b/entered",
+        "close_url": "/test-b/close",
+    })
+
+@app.get("/test-b/api/signals")
+async def test_b_api_signals():
+    try:
+        results = await analyze_all_test_variant(analyze_symbol_test_b, save_signal_test_b, _LAST_TEST_B_SIGNALS, "TEST-B Controlled Momentum")
+        return {"status": "ok", "refresh_seconds": REFRESH_SECONDS, "signals": results, "system_version": "TEST-B Controlled Momentum"}
+    except Exception:
+        return JSONResponse({"status": "error", "traceback": traceback.format_exc()}, status_code=500)
+
+@app.get("/test-b/api/signal-db")
+async def test_b_api_signal_db(limit: int = 200):
+    return {"signals": list_signals_test_b(limit=limit)}
+
+@app.post("/test-b/api/review-signals")
+async def test_b_api_review_signals():
+    return await review_due_signals_test_b()
+
+@app.get("/test-b/api/reviews")
+async def test_b_api_reviews(limit: int = 300):
+    return {"reviews": list_reviews_test_b(limit=limit)}
+
+@app.get("/test-b/api/strategy-performance")
+async def test_b_api_strategy_performance():
+    return {"performance": strategy_performance_test_b()}
+
+@app.get("/test-b/review", response_class=HTMLResponse)
+async def test_b_review_page(request: Request):
+    return templates.TemplateResponse("review_test_b.html", {"request": request, "app_name": APP_NAME + " — TEST-B Controlled Momentum", "api_base": "/test-b/api", "dashboard_url": "/test-b"})
+
+@app.post("/test-b/entered")
+async def test_b_entered(symbol: str = Form(...), direction: str = Form(...), entry: float = Form(...), stop: float = Form(...), target: float = Form(...)):
+    mark_entered(symbol, direction, entry, stop, target)
+    return RedirectResponse(url="/test-b/dashboard", status_code=303)
+
+@app.post("/test-b/close")
+async def test_b_close(symbol: str = Form(...)):
+    close_trade(symbol)
+    return RedirectResponse(url="/test-b/dashboard", status_code=303)
