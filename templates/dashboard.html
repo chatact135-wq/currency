@@ -27,7 +27,7 @@
 
 <section class="footer">
   Refresh: <span id="refresh">{{ refresh_seconds }}</span>s •
-  Test: <a href="/health">health</a> • <a href="{{ api_path }}">api</a> • <a href="/review">signal review</a> • <a href="{{ alt_path }}">switch version</a>
+  Test: <a href="/health">health</a> • <a href="{{ api_path }}">api</a> • <a href="{{ review_path|default('/review') }}">signal review</a> • <a href="{{ alt_path }}">switch version</a>
 </section>
 
 <script>

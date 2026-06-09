@@ -85,6 +85,7 @@ async def dashboard(request: Request):
         "return_to": "/dashboard",
         "alt_path": "/test",
         "alt_label": "Open Test Version",
+        "review_path": "/review",
     })
 
 
@@ -101,6 +102,7 @@ async def test_dashboard(request: Request):
         "return_to": "/test",
         "alt_path": "/dashboard",
         "alt_label": "Back to Current Live Version",
+        "review_path": "/test/review",
     })
 
 
@@ -118,6 +120,7 @@ async def testb_dashboard(request: Request):
         "return_to": "/testb",
         "alt_path": "/dashboard",
         "alt_label": "Back to Current Live Version",
+        "review_path": "/testb/review",
     })
 
 
@@ -180,7 +183,33 @@ async def api_strategy_performance():
 
 @app.get("/review", response_class=HTMLResponse)
 async def review_page(request: Request):
-    return templates.TemplateResponse("review.html", {"request": request, "app_name": APP_NAME})
+    return templates.TemplateResponse("review.html", {
+        "request": request,
+        "app_name": APP_NAME,
+        "mode_name": "Live Signal Review",
+        "mode_badge": "REVIEW MODE",
+        "back_path": "/dashboard",
+    })
+
+@app.get("/test/review", response_class=HTMLResponse)
+async def test_review_page(request: Request):
+    return templates.TemplateResponse("review.html", {
+        "request": request,
+        "app_name": APP_NAME + " / Test Review",
+        "mode_name": "Test Signal Review",
+        "mode_badge": "TEST REVIEW MODE",
+        "back_path": "/test",
+    })
+
+@app.get("/testb/review", response_class=HTMLResponse)
+async def testb_review_page(request: Request):
+    return templates.TemplateResponse("review.html", {
+        "request": request,
+        "app_name": APP_NAME + " / TestB Review",
+        "mode_name": "TestB Local-Time / Delay Tracking Review",
+        "mode_badge": "TESTB REVIEW MODE",
+        "back_path": "/testb",
+    })
 
 @app.get("/debug")
 async def debug():

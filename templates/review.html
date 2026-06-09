@@ -2,23 +2,23 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Signal Review — EdgeFlow Terminal Pro</title>
+  <title>{{ mode_name|default("Signal Review") }} — EdgeFlow Terminal Pro</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <header>
   <div>
-    <h1>Signal Database + Strategy Review</h1>
+    <h1>{{ mode_name|default("Signal Database + Strategy Review") }}</h1>
     <p>Every signal is saved and reviewed after 15m / 1h / 4h.</p>
   </div>
-  <div class="badge">REVIEW MODE</div>
+  <div class="badge">{{ mode_badge|default("REVIEW MODE") }}</div>
 </header>
 <section class="notice">
   <b>Purpose:</b> Compare what the system said with what the chart did later.
   <div class="notify-row">
     <button onclick="runReview()">Review Due Signals Now</button>
-    <a class="button-link" href="/dashboard">Back to Dashboard</a>
+    <a class="button-link" href="{{ back_path|default('/dashboard') }}">Back to Dashboard</a>
   </div>
 </section>
 <main>
