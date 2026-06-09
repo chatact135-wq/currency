@@ -27,10 +27,21 @@
   <article class="card"><h2>Latest Saved Signals</h2><div id="signals">Loading...</div></article>
 </main>
 <script>
+function toLocalTime(v){
+  if(!v || typeof v !== "string") return v ?? "";
+  if(!v.includes("T")) return v;
+  try{
+    return new Date(v).toLocaleString([], {
+      year:"numeric", month:"2-digit", day:"2-digit",
+      hour:"2-digit", minute:"2-digit", second:"2-digit"
+    });
+  }catch(e){ return v; }
+}
+
 function table(rows){
   if(!rows || rows.length===0) return "<p>No data yet.</p>";
   const cols=Object.keys(rows[0]);
-  return `<div class="table-wrap"><table class="data-table"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${r[c] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${toLocalTime(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 async function load(){
   const perf=await fetch("/api/strategy-performance").then(r=>r.json());
