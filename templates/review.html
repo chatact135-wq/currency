@@ -28,14 +28,21 @@
 </main>
 <script>
 function toLocalTime(v){
-  if(!v || typeof v !== "string") return v ?? "";
-  if(!v.includes("T")) return v;
-  try{
-    return new Date(v).toLocaleString([], {
-      year:"numeric", month:"2-digit", day:"2-digit",
-      hour:"2-digit", minute:"2-digit", second:"2-digit"
-    });
-  }catch(e){ return v; }
+  if(v === null || v === undefined) return "";
+  if(typeof v !== "string") return v;
+
+  // Only convert real ISO timestamps like 2026-06-10T13:45:00+00:00.
+  // Do NOT convert strategy names such as "Trend Continuation Sell" or commands like "TRADE NOW SELL".
+  const isoLike = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(v);
+  if(!isoLike) return v;
+
+  const d = new Date(v);
+  if(isNaN(d.getTime())) return v;
+
+  return d.toLocaleString([], {
+    year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", second:"2-digit"
+  });
 }
 
 function table(rows){

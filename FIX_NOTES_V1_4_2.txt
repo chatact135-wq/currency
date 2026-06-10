@@ -1,0 +1,15 @@
+EdgeFlow Terminal Pro V1.4.2 TESTB REVIEW DISPLAY FIX
+
+Fixed:
+- /testb/review page loaded but Strategy Performance showed many fields as Invalid Date.
+- Cause: review.html converted any string containing uppercase T into a local date.
+- This affected text values like Trend Continuation Sell and TRADE NOW SELL.
+- Fix: only ISO timestamp strings beginning YYYY-MM-DDTHH:MM:SS are converted to local time.
+
+Routes included:
+- /dashboard
+- /test
+- /testb
+- /review
+- /test/review
+- /testb/review
