@@ -17,7 +17,7 @@
 
 <section class="notice">
   <b>Rule:</b> Trade only if command is <b>SCALP NOW</b> or <b>TRADE NOW</b>.
-  Do not trade PLAN ONLY, NO TRADE, or MOVE MISSED.
+  <b>EARLY WATCH</b> means prepare only — do not enter until confirmation. Do not trade PLAN ONLY, NO TRADE, or MOVE MISSED.
   <span style="margin-left:10px;display:inline-block;"><a href="{{ alt_path }}" style="color:#8ec5ff;font-weight:700;">{{ alt_label }}</a></span>
 </section>
 
@@ -39,6 +39,7 @@ function cls(command){
   command = (command || "").toUpperCase();
   if(command.includes("TRADE NOW") || command.includes("SCALP NOW")) return "go";
   if(command.includes("MISSED")) return "missed";
+  if(command.includes("EARLY")) return "plan";
   if(command.includes("PLAN")) return "plan";
   if(command.includes("DANGER") || command.includes("NO TRADE")) return "stop";
   return "neutral";
@@ -154,6 +155,8 @@ function card(s){
       <div><span>Risk</span><b>${fmt(s.risk_moves)} moves</b></div>
       <div><span>Reward</span><b>${fmt(s.reward_moves)} moves</b></div>
       <div><span>R/R</span><b>${fmt(s.rr)}</b></div>
+      <div><span>Watch Level</span><b>${fmt(s.watch_level)}</b></div>
+      <div><span>Early Score</span><b>${fmt(s.early_score)}</b></div>
     </div>
 
     <div class="mode">

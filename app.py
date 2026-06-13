@@ -15,6 +15,7 @@ from edgeflow.config import APP_NAME, SYMBOLS, REFRESH_SECONDS
 from edgeflow.data_provider import fetch_twelvedata_candles, fallback_demo_data, DataError
 from edgeflow.strategy_engine import analyze_symbol
 from edgeflow.strategy_engine_test import analyze_symbol_test
+from edgeflow.strategy_engine_testb import analyze_symbol_testb
 from edgeflow.journal import log_signal, get_journal, mark_entered, close_trade, get_open_trades, manage_trade
 from edgeflow.signal_db import save_signal, list_signals, list_reviews, strategy_performance, init_db
 from edgeflow.signal_reviewer import review_due_signals
@@ -31,8 +32,15 @@ _LAST_SIGNALS: Dict[str, dict] = {}
 
 async def analyze_all(variant: str = "live") -> dict:
     results = {}
-    engine = analyze_symbol_test if variant == "test" else analyze_symbol
-    variant_label = "TEST ENGINE /test" if variant == "test" else "LIVE ENGINE /"
+    if variant == "testb":
+        engine = analyze_symbol_testb
+        variant_label = "TESTB EARLY PRESSURE ENGINE /testb"
+    elif variant == "test":
+        engine = analyze_symbol_test
+        variant_label = "TEST ENGINE /test"
+    else:
+        engine = analyze_symbol
+        variant_label = "LIVE ENGINE /"
     for symbol in SYMBOLS:
         try:
             df = await fetch_twelvedata_candles(symbol, "1min", 200)
@@ -116,7 +124,7 @@ async def testb_dashboard(request: Request):
         "symbols": SYMBOLS,
         "mode_name": "TestB — Local Time / Delay Tracking",
         "mode_badge": "TESTB VERSION / LOCAL TIME TRACKING",
-        "api_path": "/api/signals-test",
+        "api_path": "/api/signals-testb",
         "return_to": "/testb",
         "alt_path": "/dashboard",
         "alt_label": "Back to Current Live Version",
@@ -138,6 +146,14 @@ async def api_signals_test():
     try:
         results = await analyze_all("test")
         return {"status": "ok", "refresh_seconds": REFRESH_SECONDS, "signals": results, "variant": "test"}
+    except Exception:
+        return JSONResponse({"status": "error", "traceback": traceback.format_exc()}, status_code=500)
+
+@app.get("/api/signals-testb")
+async def api_signals_testb():
+    try:
+        results = await analyze_all("testb")
+        return {"status": "ok", "refresh_seconds": REFRESH_SECONDS, "signals": results, "variant": "testb"}
     except Exception:
         return JSONResponse({"status": "error", "traceback": traceback.format_exc()}, status_code=500)
 

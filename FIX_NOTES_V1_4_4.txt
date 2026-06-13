@@ -1,0 +1,21 @@
+EdgeFlow Terminal Pro V1.4.4 — TESTB Early Pressure Prediction
+
+Changes:
+- Added a separate TestB engine: edgeflow/strategy_engine_testb.py
+- /testb now uses /api/signals-testb instead of sharing /api/signals-test
+- TestB keeps confirmed /test SCALP NOW logic, but adds earlier warning layer:
+  - EARLY SELL WATCH — WAIT
+  - EARLY BUY WATCH — WAIT
+- Early watch signals are NOT trade permission. They are preparation alerts only.
+- Added watch_level and early_score to dashboard cards.
+- Sell-pressure bias is preferred in TestB because previous review showed BUY scalp was weak during sell-pressure conditions.
+
+Use:
+- /dashboard = current live version
+- /test = experimental confirmed version
+- /testb = early pressure / local-time tracking version
+- /testb/review = review page
+
+Rule:
+- Enter only SCALP NOW or TRADE NOW.
+- EARLY WATCH means get ready, but wait for confirmation.
