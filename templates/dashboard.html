@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ app_name }}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .signal-card { 
+            background: #1e2937; 
+            border-radius: 12px; 
+            padding: 24px; 
+            margin-bottom: 20px; 
+            border: 1px solid #334155;
+        }
+        .buy { border-left: 6px solid #22c55e; }
+        .sell { border-left: 6px solid #ef4444; }
+        .no-trade { border-left: 6px solid #64748b; }
+        h1 { margin: 0; }
+        .price { font-size: 2rem; font-weight: 700; }
+        .level { font-size: 1.1rem; margin: 8px 0; }
+        .confidence { font-size: 1.4rem; font-weight: 700; }
+        .reasons { margin-top: 15px; }
+        .reason { background: #334155; padding: 6px 12px; border-radius: 6px; display: inline-block; margin: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>{{ app_name }}</h1>
+                <p style="color:#94a3b8; margin: 5px 0 0 0;">High Confluence Forex System • EUR/USD + GBP/USD</p>
+            </div>
+            <div style="text-align: right;">
+                <div style="color:#22c55e; font-weight:600;">LIVE</div>
+                <div style="font-size:0.9rem; color:#64748b;">Auto-refresh every {{ refresh_seconds }}s</div>
+            </div>
+        </div>
+
+        <div id="signals-container">
+            <p>Loading signals...</p>
+        </div>
+    </div>
+
+    <script>
+        async function fetchSignals() {
+            try {
+                const res = await fetch('/api/signals');
+                const data = await res.json();
+                
+                let html = '';
+                
+                for (const [symbol, signal] of Object.entries(data.signals)) {
+                    let cardClass = 'no-trade';
+                    if (signal.signal && signal.signal.includes('BUY')) cardClass = 'buy';
+                    if (signal.signal && signal.signal.includes('SELL')) cardClass = 'sell';
+                    
+                    html += `
+                        <div class="signal-card ${cardClass}">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <h2 style="margin:0;">${symbol}</h2>
+                                <div style="font-size:1.8rem; font-weight:700; color: ${signal.direction === 'BUY' ? '#22c55e' : signal.direction === 'SELL' ? '#ef4444' : '#64748b'}">
+                                    ${signal.signal || 'NO TRADE'}
+                                </div>
+                            </div>
+                            
+                            <div class="price">${signal.price ? signal.price.toFixed(5) : 'N/A'}</div>
+                            
+                            ${signal.direction ? `
+                                <div class="level"><strong>Entry:</strong> ${signal.entry}</div>
+                                <div class="level"><strong>Stop Loss:</strong> ${signal.stop_loss}</div>
+                                <div class="level"><strong>Take Profit:</strong> ${signal.take_profit}</div>
+                                <div class="confidence" style="color:#eab308;">Confidence: ${signal.confidence}%</div>
+                            ` : ''}
+                            
+                            ${signal.reasons && signal.reasons.length > 0 ? `
+                                <div class="reasons">
+                                    ${signal.reasons.map(r => `<span class="reason">${r}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                            
+                            <div style="margin-top:15px; font-size:0.85rem; color:#64748b;">
+                                ${signal.expected_move_minutes ? `Expected move: ${signal.expected_move_minutes} minutes` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('signals-container').innerHTML = html;
+            } catch (e) {
+                document.getElementById('signals-container').innerHTML = '<p style="color:#ef4444;">Error loading signals. Check console.</p>';
+                console.error(e);
+            }
+        }
+        
+        fetchSignals();
+        setInterval(fetchSignals, {{ refresh_seconds }} * 1000);
+    </script>
+</body>
+</html>
