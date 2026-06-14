@@ -1,0 +1,33 @@
+/* EdgeFlow Pro v2 - Modern Dashboard Styles */
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.card {
+    background: #1e2937;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.signal-buy {
+    border-left: 5px solid #22c55e;
+}
+
+.signal-sell {
+    border-left: 5px solid #ef4444;
+}
+
+.confidence-high { color: #22c55e; }
+.confidence-med { color: #eab308; }
