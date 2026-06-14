@@ -1,88 +1,29 @@
-# EdgeFlow Terminal Pro — Live Test V1
+# EdgeFlow Pro v2 - High Confluence Forex System
 
-Professional live-test trading terminal for EUR/USD and GBP/USD.
+Clean, professional trading signal system focused on **EUR/USD** and **GBP/USD**.
 
-This is not a "guaranteed profit" system. It is a controlled live-test platform using what we learned from the real-data backtest:
+## Features
+- High confluence multi-timeframe analysis (M15 + H1 + H4)
+- Clear signals with Entry, Stop Loss, Take Profit
+- Confidence scoring
+- Clean architecture (no duplicated test versions)
+- Ready for Railway deployment
 
-- Do not trust raw mixed signals.
-- Detect market mode first.
-- Avoid random reversals in strong trend days.
-- Use breakout/retest and pullback continuation only when risk is controlled.
-- Block chasing late moves.
-- Use micro risk only until more results are proven.
-
-## Main features
-
-- Live dashboard
-- TwelveData API support
-- Market Mode Detector
-  - TREND BUY
-  - TREND SELL
-  - NORMAL
-  - CHOPPY
-  - DANGER / HIGH VOLATILITY
-- Strategy Engine
-  - Break + Retest Continuation
-  - Pullback Continuation
-  - Strong Trend Day Continuation
-  - Liquidity Sweep Reversal only when allowed
-- No-Chase filter
-- Risk / reward filter
-- Trade Manager
-- Daily Safety Guard
-- Signal Journal
-
-## Commands
-
-The system only gives these commands:
-
-```text
-TRADE NOW BUY
-TRADE NOW SELL
-SCALP NOW BUY
-SCALP NOW SELL
-PLAN ONLY — DO NOT ENTER
-NO TRADE
-MOVE MISSED — DO NOT CHASE
-MANAGE OPEN TRADE
-```
-
-## Run locally
+## Quick Start (Local)
 
 ```bash
 pip install -r requirements.txt
-python -m uvicorn app:app --host 0.0.0.0 --port 8000
+TWELVEDATA_API_KEY=your_key_here uvicorn app:app --reload
 ```
 
-Open:
+Then open: http://127.0.0.1:8000
 
-```text
-http://127.0.0.1:8000
-```
+## Environment Variables
+- `TWELVEDATA_API_KEY` (required for live data)
 
-## Railway
+## Deployment (Railway)
+1. Upload this folder
+2. Add environment variable: `TWELVEDATA_API_KEY`
+3. Deploy
 
-This package includes Dockerfile and railway.json.
-
-Set environment variable:
-
-```text
-TWELVEDATA_API_KEY=your_key_here
-```
-
-Optional:
-
-```text
-EDGEFLOW_REFRESH_SECONDS=30
-EDGEFLOW_MODE=live_test
-```
-
-## Important risk warning
-
-Use demo or micro real-money testing only.
-
-Recommended rules:
-- Max 0.25% risk per trade.
-- Max 1–2 trades per day.
-- Stop after 2 losses.
-- No trade when command is PLAN ONLY / NO TRADE / MOVE MISSED.
+This is v2 - built clean from the beginning with better strategy logic.

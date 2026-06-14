@@ -1,141 +1,102 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>{{ app_name }}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/static/style.css">
+    <title>{{ app_name }}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .signal-card { 
+            background: #1e2937; 
+            border-radius: 12px; 
+            padding: 24px; 
+            margin-bottom: 20px; 
+            border: 1px solid #334155;
+        }
+        .buy { border-left: 6px solid #22c55e; }
+        .sell { border-left: 6px solid #ef4444; }
+        .no-trade { border-left: 6px solid #64748b; }
+        h1 { margin: 0; }
+        .price { font-size: 2rem; font-weight: 700; }
+        .level { font-size: 1.1rem; margin: 8px 0; }
+        .confidence { font-size: 1.4rem; font-weight: 700; }
+        .reasons { margin-top: 15px; }
+        .reason { background: #334155; padding: 6px 12px; border-radius: 6px; display: inline-block; margin: 4px; }
+    </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>EdgeFlow Terminal Pro</h1>
-    <p>Live Test V1 — Market Mode • Strategy Permission • Trade Manager</p>
-  </div>
-  <div class="badge">LIVE TEST MODE — MICRO RISK ONLY</div>
-</header>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>{{ app_name }}</h1>
+                <p style="color:#94a3b8; margin: 5px 0 0 0;">High Confluence Forex System • EUR/USD + GBP/USD</p>
+            </div>
+            <div style="text-align: right;">
+                <div style="color:#22c55e; font-weight:600;">LIVE</div>
+                <div style="font-size:0.9rem; color:#64748b;">Auto-refresh every {{ refresh_seconds }}s</div>
+            </div>
+        </div>
 
-<section class="notice">
-  <b>Rule:</b> Trade only if command is <b>SCALP NOW</b> or <b>TRADE NOW</b>.
-  Do not trade PLAN ONLY, NO TRADE, or MOVE MISSED.
-</section>
-
-<main id="cards">
-  <div class="loading">Loading live analysis...</div>
-</main>
-
-<section class="footer">
-  Refresh: <span id="refresh">{{ refresh_seconds }}</span>s •
-  Test: <a href="/health">health</a> • <a href="/api/signals">api/signals</a>
-</section>
-
-<script>
-const REFRESH_SECONDS = {{ refresh_seconds }};
-
-function cls(command){
-  command = (command || "").toUpperCase();
-  if(command.includes("TRADE NOW") || command.includes("SCALP NOW")) return "go";
-  if(command.includes("MISSED")) return "missed";
-  if(command.includes("PLAN")) return "plan";
-  if(command.includes("DANGER") || command.includes("NO TRADE")) return "stop";
-  return "neutral";
-}
-
-function fmt(v){
-  if(v === null || v === undefined || v === "") return "-";
-  return v;
-}
-
-function formEntered(s){
-  if(!s.entry || !s.stop || !s.target) return "";
-  return `
-  <form class="inline" action="/entered" method="post">
-    <input type="hidden" name="symbol" value="${s.symbol}">
-    <input type="hidden" name="direction" value="${s.direction}">
-    <input type="hidden" name="entry" value="${s.entry}">
-    <input type="hidden" name="stop" value="${s.stop}">
-    <input type="hidden" name="target" value="${s.target}">
-    <button> I ENTERED ${s.direction}</button>
-  </form>`;
-}
-
-function card(s){
-  const m = s.market_mode || {};
-  const mgr = s.open_trade_manager;
-  const mgrHtml = mgr ? `
-    <div class="manager">
-      <h3>Open Trade Manager</h3>
-      <p><b>${mgr.action}</b></p>
-      <div class="grid2">
-        <div>Current<br><b>${mgr.current_price}</b></div>
-        <div>P/L moves<br><b>${mgr.pnl_moves}</b></div>
-      </div>
-      <form action="/close" method="post"><input type="hidden" name="symbol" value="${s.symbol}"><button class="yellow">Close Trade</button></form>
-    </div>` : "";
-
-  return `
-  <article class="card ${cls(s.command)}">
-    <div class="top">
-      <div>
-        <h2>${s.symbol}</h2>
-        <p class="source">${s.source}${s.data_error ? " • " + s.data_error : ""}</p>
-      </div>
-      <div class="command">${s.command}</div>
+        <div id="signals-container">
+            <p>Loading signals...</p>
+        </div>
     </div>
 
-    <p class="reason">${s.reason}</p>
-
-    <div class="grid">
-      <div><span>Market Mode</span><b>${m.mode || "-"}</b></div>
-      <div><span>Bias</span><b>${m.bias || "-"}</b></div>
-      <div><span>Price</span><b>${fmt(s.price)}</b></div>
-      <div><span>Strategy</span><b>${s.strategy}</b></div>
-      <div><span>Direction</span><b>${s.direction}</b></div>
-      <div><span>Quality</span><b>${s.quality}</b></div>
-      <div><span>Entry</span><b>${fmt(s.entry)}</b></div>
-      <div><span>Stop</span><b>${fmt(s.stop)}</b></div>
-      <div><span>Target</span><b>${fmt(s.target)}</b></div>
-      <div><span>Risk</span><b>${fmt(s.risk_moves)} moves</b></div>
-      <div><span>Reward</span><b>${fmt(s.reward_moves)} moves</b></div>
-      <div><span>R/R</span><b>${fmt(s.rr)}</b></div>
-    </div>
-
-    <div class="mode">
-      <h3>Market Details</h3>
-      <p>${m.reason || "-"}</p>
-      <div class="mini">
-        <span>Day range: <b>${fmt(m.day_range_moves)}</b></span>
-        <span>Day move: <b>${fmt(m.day_move_moves)}</b></span>
-        <span>ATR: <b>${fmt(m.atr14_moves)}</b></span>
-        <span>EMA20: <b>${fmt(m.ema20)}</b></span>
-        <span>EMA50: <b>${fmt(m.ema50)}</b></span>
-      </div>
-    </div>
-
-    <div class="actions">
-      ${formEntered(s)}
-    </div>
-    ${mgrHtml}
-  </article>`;
-}
-
-async function load(){
-  const el = document.getElementById("cards");
-  try{
-    const r = await fetch("/api/signals?ts=" + Date.now());
-    const data = await r.json();
-    if(data.status !== "ok"){
-      el.innerHTML = `<pre>${JSON.stringify(data,null,2)}</pre>`;
-      return;
-    }
-    el.innerHTML = Object.values(data.signals).map(card).join("");
-  }catch(e){
-    el.innerHTML = `<div class="error">Load failed: ${e}</div>`;
-  }
-}
-
-load();
-setInterval(load, REFRESH_SECONDS * 1000);
-</script>
+    <script>
+        async function fetchSignals() {
+            try {
+                const res = await fetch('/api/signals');
+                const data = await res.json();
+                
+                let html = '';
+                
+                for (const [symbol, signal] of Object.entries(data.signals)) {
+                    let cardClass = 'no-trade';
+                    if (signal.signal && signal.signal.includes('BUY')) cardClass = 'buy';
+                    if (signal.signal && signal.signal.includes('SELL')) cardClass = 'sell';
+                    
+                    html += `
+                        <div class="signal-card ${cardClass}">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <h2 style="margin:0;">${symbol}</h2>
+                                <div style="font-size:1.8rem; font-weight:700; color: ${signal.direction === 'BUY' ? '#22c55e' : signal.direction === 'SELL' ? '#ef4444' : '#64748b'}">
+                                    ${signal.signal || 'NO TRADE'}
+                                </div>
+                            </div>
+                            
+                            <div class="price">${signal.price ? signal.price.toFixed(5) : 'N/A'}</div>
+                            
+                            ${signal.direction ? `
+                                <div class="level"><strong>Entry:</strong> ${signal.entry}</div>
+                                <div class="level"><strong>Stop Loss:</strong> ${signal.stop_loss}</div>
+                                <div class="level"><strong>Take Profit:</strong> ${signal.take_profit}</div>
+                                <div class="confidence" style="color:#eab308;">Confidence: ${signal.confidence}%</div>
+                            ` : ''}
+                            
+                            ${signal.reasons && signal.reasons.length > 0 ? `
+                                <div class="reasons">
+                                    ${signal.reasons.map(r => `<span class="reason">${r}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                            
+                            <div style="margin-top:15px; font-size:0.85rem; color:#64748b;">
+                                ${signal.expected_move_minutes ? `Expected move: ${signal.expected_move_minutes} minutes` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('signals-container').innerHTML = html;
+            } catch (e) {
+                document.getElementById('signals-container').innerHTML = '<p style="color:#ef4444;">Error loading signals. Check console.</p>';
+                console.error(e);
+            }
+        }
+        
+        fetchSignals();
+        setInterval(fetchSignals, {{ refresh_seconds }} * 1000);
+    </script>
 </body>
 </html>
