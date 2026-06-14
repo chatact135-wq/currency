@@ -27,6 +27,7 @@
     </style>
 </head>
 <body>
+<<<<<<< HEAD
     <div class="container">
         <div class="header">
             <div>
@@ -98,5 +99,196 @@
         fetchSignals();
         setInterval(fetchSignals, {{ refresh_seconds }} * 1000);
     </script>
+=======
+<header>
+  <div>
+    <h1>EdgeFlow Terminal Pro</h1>
+    <p>{{ mode_name }} — Market Mode • Strategy Permission • Trade Manager</p>
+  </div>
+  <div class="badge">{{ mode_badge }}</div>
+</header>
+
+<section class="notice">
+  <b>Rule:</b> Trade only if command is <b>SCALP NOW</b> or <b>TRADE NOW</b>.
+  <b>EARLY WATCH</b> means prepare only — do not enter until confirmation. Do not trade PLAN ONLY, NO TRADE, or MOVE MISSED.
+  <span style="margin-left:10px;display:inline-block;"><a href="{{ alt_path }}" style="color:#8ec5ff;font-weight:700;">{{ alt_label }}</a></span>
+</section>
+
+<main id="cards">
+  <div class="loading">Loading live analysis...</div>
+</main>
+
+<section class="footer">
+  Refresh: <span id="refresh">{{ refresh_seconds }}</span>s •
+  Test: <a href="/health">health</a> • <a href="{{ api_path }}">api</a> • <a href="{{ review_path|default('/review') }}">signal review</a> • <a href="{{ alt_path }}">switch version</a>
+</section>
+
+<script>
+const REFRESH_SECONDS = {{ refresh_seconds }};
+const API_PATH = {{ api_path|tojson }};
+const RETURN_TO = {{ return_to|tojson }};
+
+function cls(command){
+  command = (command || "").toUpperCase();
+  if(command.includes("TRADE NOW") || command.includes("SCALP NOW")) return "go";
+  if(command.includes("MISSED")) return "missed";
+  if(command.includes("EARLY")) return "plan";
+  if(command.includes("PLAN")) return "plan";
+  if(command.includes("DANGER") || command.includes("NO TRADE")) return "stop";
+  return "neutral";
+}
+
+function fmt(v){
+  if(v === null || v === undefined || v === "") return "-";
+  return v;
+}
+
+function localTime(iso){
+  if(!iso) return "-";
+  try{
+    return new Date(iso).toLocaleString([], {
+      year:"numeric", month:"2-digit", day:"2-digit",
+      hour:"2-digit", minute:"2-digit", second:"2-digit"
+    });
+  }catch(e){ return iso; }
+}
+
+function localClockNow(){
+  return new Date().toLocaleString([], {
+    year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", second:"2-digit"
+  });
+}
+
+function delaySeconds(iso){
+  if(!iso) return "-";
+  try{
+    const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if(isNaN(diff)) return "-";
+    return Math.max(0, Math.round(diff));
+  }catch(e){ return "-"; }
+}
+
+function signalKey(s){
+  return `${s.symbol}|${s.command}|${s.strategy}|${s.direction}|${s.entry}|${s.stop}|${s.target}`;
+}
+
+function firstSeenLocal(s){
+  const key = "edgeflow_first_seen_" + signalKey(s);
+  let saved = localStorage.getItem(key);
+  if(!saved){
+    saved = new Date().toISOString();
+    localStorage.setItem(key, saved);
+  }
+  return localTime(saved);
+}
+
+function formEntered(s){
+  if(!s.entry || !s.stop || !s.target) return "";
+  return `
+  <form class="inline" action="/entered" method="post">
+    <input type="hidden" name="symbol" value="${s.symbol}">
+    <input type="hidden" name="direction" value="${s.direction}">
+    <input type="hidden" name="entry" value="${s.entry}">
+    <input type="hidden" name="stop" value="${s.stop}">
+    <input type="hidden" name="target" value="${s.target}">
+    <input type="hidden" name="return_to" value="${RETURN_TO}">
+    <button> I ENTERED ${s.direction}</button>
+  </form>`;
+}
+
+function card(s){
+  const m = s.market_mode || {};
+  const mgr = s.open_trade_manager;
+  const variantLabel = s.engine_variant ? `<div class="tiny-note">Engine: <b>${s.engine_variant}</b></div>` : "";
+  const mgrHtml = mgr ? `
+    <div class="manager">
+      <h3>Open Trade Manager</h3>
+      <p><b>${mgr.action}</b></p>
+      <div class="grid2">
+        <div>Current<br><b>${mgr.current_price}</b></div>
+        <div>P/L moves<br><b>${mgr.pnl_moves}</b></div>
+      </div>
+      <form action="/close" method="post"><input type="hidden" name="symbol" value="${s.symbol}"><input type="hidden" name="return_to" value="${RETURN_TO}"><button class="yellow">Close Trade</button></form>
+    </div>` : "";
+
+  return `
+  <article class="card ${cls(s.command)}">
+    <div class="top">
+      <div>
+        <h2>${s.symbol}</h2>
+        <p class="source">${s.source}${s.data_error ? " • " + s.data_error : ""}</p>
+        ${variantLabel}
+      </div>
+      <div class="command">${s.command}</div>
+    </div>
+
+    <p class="reason">${s.reason}</p>
+
+    <div class="timing-panel">
+      <h3>Signal Timing</h3>
+      <div class="mini">
+        <span>Strategy time on this device: <b>${localTime(s.signal_time_utc)}</b></span>
+        <span>First seen on this device: <b>${firstSeenLocal(s)}</b></span>
+        <span>Delay now: <b>${delaySeconds(s.signal_time_utc)} sec</b></span>
+        <span>Last refresh on this device: <b>${localClockNow()}</b></span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div><span>Market Mode</span><b>${m.mode || "-"}</b></div>
+      <div><span>Bias</span><b>${m.bias || "-"}</b></div>
+      <div><span>Price</span><b>${fmt(s.price)}</b></div>
+      <div><span>Strategy</span><b>${s.strategy}</b></div>
+      <div><span>Direction</span><b>${s.direction}</b></div>
+      <div><span>Quality</span><b>${s.quality}</b></div>
+      <div><span>Entry</span><b>${fmt(s.entry)}</b></div>
+      <div><span>Stop</span><b>${fmt(s.stop)}</b></div>
+      <div><span>Target</span><b>${fmt(s.target)}</b></div>
+      <div><span>Risk</span><b>${fmt(s.risk_moves)} moves</b></div>
+      <div><span>Reward</span><b>${fmt(s.reward_moves)} moves</b></div>
+      <div><span>R/R</span><b>${fmt(s.rr)}</b></div>
+      <div><span>Watch Level</span><b>${fmt(s.watch_level)}</b></div>
+      <div><span>Early Score</span><b>${fmt(s.early_score)}</b></div>
+    </div>
+
+    <div class="mode">
+      <h3>Market Details</h3>
+      <p>${m.reason || "-"}</p>
+      <div class="mini">
+        <span>Day range: <b>${fmt(m.day_range_moves)}</b></span>
+        <span>Day move: <b>${fmt(m.day_move_moves)}</b></span>
+        <span>ATR: <b>${fmt(m.atr14_moves)}</b></span>
+        <span>EMA20: <b>${fmt(m.ema20)}</b></span>
+        <span>EMA50: <b>${fmt(m.ema50)}</b></span>
+      </div>
+    </div>
+
+    <div class="actions">
+      ${formEntered(s)}
+    </div>
+    ${mgrHtml}
+  </article>`;
+}
+
+async function load(){
+  const el = document.getElementById("cards");
+  try{
+    const r = await fetch(API_PATH + "?ts=" + Date.now());
+    const data = await r.json();
+    if(data.status !== "ok"){
+      el.innerHTML = `<pre>${JSON.stringify(data,null,2)}</pre>`;
+      return;
+    }
+    el.innerHTML = Object.values(data.signals).map(card).join("");
+  }catch(e){
+    el.innerHTML = `<div class="error">Load failed: ${e}</div>`;
+  }
+}
+
+load();
+setInterval(load, REFRESH_SECONDS * 1000);
+</script>
+>>>>>>> ae64b9fd8d4a6d0dd9fe41501a18f8a97a3f7edc
 </body>
 </html>

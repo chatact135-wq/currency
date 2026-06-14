@@ -1,0 +1,15 @@
+EdgeFlow Terminal Pro V1.4.3 — Review Engine Good/Bad Fix
+
+Fixed:
+- Review engine was saving rows but often left good/bad/favorable/adverse empty because signals with entry=None or missing exact future candle windows were classified as NO DATA.
+- Reviewer now uses signal price as the review reference when entry is missing.
+- Reviewer now fetches a larger candle window for 15m/1h/4h review.
+- Reviewer now uses fallback review windows if exact historical candles are unavailable, so rows do not stay empty forever.
+- Added safer pip/move unit handling for forex, JPY, XAU/GOLD, and OIL.
+- Rerunning "Review Due Signals Now" will replace old empty reviews with updated classified reviews.
+
+After deploy:
+1. Open /testb/review
+2. Click Review Due Signals Now
+3. Refresh the page
+4. good/bad and avg_favorable/avg_adverse should populate.
