@@ -83,23 +83,23 @@ def analyze_symbol(symbol: str, df: pd.DataFrame) -> Dict[str, Any]:
         score += 15
         reasons.append("Sufficient volatility")
 
-    # === Final Decision ===
-    if score >= 70:
+    # === Final Decision (Balanced High-Quality Mode) ===
+    if score >= 72:
         direction = "BUY"
         entry = round(current_price, 5)
-        stop_loss = round(current_price - (atr * 1.6), 5)
-        take_profit = round(current_price + (atr * 3.2), 5)
-        confidence = min(score + 5, 95)
-    elif score <= 30:
+        stop_loss = round(current_price - (atr * 1.2), 5)
+        take_profit = round(current_price + (atr * 2.0), 5)
+        confidence = min(score + 3, 93)
+    elif score <= 28:
         direction = "SELL"
         entry = round(current_price, 5)
-        stop_loss = round(current_price + (atr * 1.6), 5)
-        take_profit = round(current_price - (atr * 3.2), 5)
-        confidence = min(100 - score + 5, 95)
+        stop_loss = round(current_price + (atr * 1.2), 5)
+        take_profit = round(current_price - (atr * 2.0), 5)
+        confidence = min(100 - score + 3, 93)
     else:
         return {
             "signal": "NO TRADE",
-            "reason": "Low confluence",
+            "reason": "Low confluence - Waiting for better setup",
             "confidence": score,
             "price": current_price
         }
@@ -114,6 +114,6 @@ def analyze_symbol(symbol: str, df: pd.DataFrame) -> Dict[str, Any]:
         "reasons": reasons,
         "atr": round(atr, 5),
         "price": current_price,
-        "expected_move_minutes": "45-120",
-        "timeframe": "M15-H1-H4 Confluence"
+        "expected_move_minutes": "25-70",
+        "timeframe": "M15 + H4 Balanced Confluence"
     }
