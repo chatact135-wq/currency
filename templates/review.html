@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ app_name }} - Signal Journal</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; background: #1e2937; border-radius: 12px; overflow: hidden; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+        th { background: #334155; }
+        .buy { color: #22c55e; }
+        .sell { color: #ef4444; }
+        .no-trade { color: #94a3b8; }
+        .reason-cell { max-width: 400px; white-space: pre-wrap; }
+        .timestamp { font-size: 0.85rem; color: #64748b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>{{ app_name }} - Signal Journal / Review</h1>
+                <p>Last 50 decisions with detailed reasons</p>
+            </div>
+            <a href="/" style="color:#60a5fa;">← Back to Live Dashboard</a>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Time (UTC)</th>
+                    <th>Pair</th>
+                    <th>Signal</th>
+                    <th>Price</th>
+                    <th>Confidence</th>
+                    <th>Reasons / Strategy</th>
+                    <th>Levels</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in history %}
+                <tr>
+                    <td class="timestamp">{{ row['timestamp'][:19] }}</td>
+                    <td>{{ row['symbol'] }}</td>
+                    <td class="{% if 'BUY' in row['signal_type'] %}buy{% elif 'SELL' in row['signal_type'] %}sell{% else %}no-trade{% endif %}">
+                        <strong>{{ row['signal_type'] }}</strong>
+                    </td>
+                    <td>{{ row['price'] }}</td>
+                    <td>{{ row['confidence'] }}%</td>
+                    <td class="reason-cell">{{ row['reasons'] }}</td>
+                    <td>
+                        {% if row['entry'] %}<small>Entry: {{ row['entry'] }}<br>SL: {{ row['stop_loss'] }}<br>TP: {{ row['take_profit'] }}</small>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <p style="margin-top: 30px; color: #64748b; font-size: 0.9rem;">
+            This journal stores every decision permanently. You can review signals hours later.
+        </p>
+    </div>
+</body>
+</html>
