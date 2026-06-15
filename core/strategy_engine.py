@@ -83,25 +83,25 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
         score += 15
         reasons.append("Sufficient volatility")
 
-    # === H4 Filter (Less Strict Version) ===
+    # === H4 Filter (Moderate Active Version) ===
     h4_aligned = True
     if df_h4 is not None and len(df_h4) >= 30:
         h4_ema50 = df_h4['close'].ewm(span=50).mean().iloc[-1]
         h4_structure = detect_market_structure(df_h4)
         
         if current_price > h4_ema50 and h4_structure == "bullish":
-            score += 15
+            score += 12
             reasons.append("H4 trend aligned (bullish)")
         elif current_price < h4_ema50 and h4_structure == "bearish":
-            score += 15
+            score += 12
             reasons.append("H4 trend aligned (bearish)")
         else:
             h4_aligned = False
-            score -= 8   # Much smaller penalty
-            reasons.append("H4 not fully aligned (minor reduction)")
+            score -= 5   # Light penalty only
+            reasons.append("H4 not fully aligned (light influence)")
 
-    # === Final Decision (same threshold regardless of H4) ===
-    min_score = 68
+    # === Final Decision (Moderate threshold) ===
+    min_score = 65
 
     if score >= min_score:
         direction = "BUY"
