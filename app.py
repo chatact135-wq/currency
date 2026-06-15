@@ -62,8 +62,23 @@ async def analyze_all() -> dict:
             source = "DEMO MODE (No API Key)"
             error = str(e)
 
-        signal = analyze_symbol(symbol, df_m15, df_h4)
-        current_price = signal.get("price") or float(df_m15["close"].iloc[-1])
+        if "DEMO" in source:
+            # In demo mode: Do NOT generate fake trade signals
+            signal = {
+                "signal": "NO LIVE DATA",
+                "direction": None,
+                "price": float(df_m15["close"].iloc[-1]) if df_m15 is not None else 0,
+                "confidence": 0,
+                "reasons": ["No live data from TwelveData"],
+                "entry": None,
+                "stop_loss": None,
+                "take_profit": None,
+                "expected_move_minutes": None
+            }
+        else:
+            signal = analyze_symbol(symbol, df_m15, df_h4)
+
+        current_price = signal.get("price") or (float(df_m15["close"].iloc[-1]) if df_m15 is not None else 0)
 
         signal["symbol"] = symbol
         signal["source"] = source
@@ -85,6 +100,10 @@ async def analyze_all() -> dict:
         signal["is_old"] = False
         results[symbol] = signal
         _LAST_SIGNALS[symbol] = signal
+
+        # Only save to journal if we have real live data
+        if "DEMO" in source:
+            continue
 
         # Save to persistent journal
         try:
