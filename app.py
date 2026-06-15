@@ -69,6 +69,20 @@ async def analyze_all() -> dict:
         signal["source"] = source
         signal["data_error"] = error
         signal["signal_time_utc"] = datetime.now(timezone.utc).isoformat()
+        # Local time for user (UTC+4)
+        try:
+            from datetime import timedelta
+            local_time = datetime.now(timezone.utc) + timedelta(hours=4)
+            signal["signal_time_local"] = local_time.strftime("%Y-%m-%d %H:%M:%S")
+        except:
+            signal["signal_time_local"] = signal["signal_time_utc"]
+        
+        # Signal age for freshness warning
+        # Calculate signal age (for freshness)
+        signal["signal_age_minutes"] = 0  # Will be updated in frontend for real-time
+        
+        # Add is_old flag for warning
+        signal["is_old"] = False
         results[symbol] = signal
         _LAST_SIGNALS[symbol] = signal
 
