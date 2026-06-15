@@ -35,12 +35,13 @@
             </div>
             <div>
                 <a href="/review" style="color:#60a5fa; margin-right: 15px;">📜 Signal Journal</a>
-                <div style="color:#22c55e; font-weight:600; display: inline;">LIVE</div>
             </div>
-            <div style="text-align: right;">
-                <div style="color:#22c55e; font-weight:600;">LIVE</div>
-                <div style="font-size:0.9rem; color:#64748b;">Auto-refresh every {{ refresh_seconds }}s</div>
-            </div>
+        </div>
+
+        <!-- Demo Mode Warning Banner -->
+        <div id="demo-warning" style="display:none; background:#7f1d1d; color:white; padding:12px 20px; border-radius:8px; margin-bottom:20px; text-align:center; font-weight:600;">
+            ⚠️ DEMO MODE ACTIVE — Using fake prices (API key missing or invalid).<br>
+            Real market data is NOT showing. Please add your TWELVEDATA_API_KEY in Railway.
         </div>
 
         <div id="signals-container">
@@ -56,15 +57,25 @@
                 
                 let html = '';
                 
+                // Show big warning if any signal is in demo mode
+                const isDemo = Object.values(data.signals).some(s => s.source && s.source.includes('DEMO'));
+                if (isDemo) {
+                    document.getElementById('demo-warning').style.display = 'block';
+                }
+
                 for (const [symbol, signal] of Object.entries(data.signals)) {
                     let cardClass = 'no-trade';
                     if (signal.signal && signal.signal.includes('BUY')) cardClass = 'buy';
                     if (signal.signal && signal.signal.includes('SELL')) cardClass = 'sell';
                     
+                    const sourceText = signal.source && signal.source.includes('DEMO') 
+                        ? `<span style="color:#f87171; font-size:0.85rem;">(DEMO DATA - Wrong prices)</span>` 
+                        : '';
+                    
                     html += `
                         <div class="signal-card ${cardClass}">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <h2 style="margin:0;">${symbol}</h2>
+                                <h2 style="margin:0;">${symbol} ${sourceText}</h2>
                                 <div style="font-size:1.8rem; font-weight:700; color: ${signal.direction === 'BUY' ? '#22c55e' : signal.direction === 'SELL' ? '#ef4444' : '#64748b'}">
                                     ${signal.signal || 'NO TRADE'}
                                 </div>
