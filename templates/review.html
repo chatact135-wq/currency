@@ -31,7 +31,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Time (UTC)</th>
+                    <th>Time (Local UTC+4)</th>
                     <th>Pair</th>
                     <th>Signal</th>
                     <th>Price</th>
@@ -43,7 +43,7 @@
             <tbody>
                 {% for row in history %}
                 <tr>
-                    <td class="timestamp">{{ row['timestamp'][:19] }}</td>
+                    <td class="timestamp">{{ row.get('signal_time_local', row['timestamp'][:19]) if 'signal_time_local' in row else row['timestamp'][:19] }}</td>
                     <td>{{ row['symbol'] }}</td>
                     <td class="{% if 'BUY' in row['signal_type'] %}buy{% elif 'SELL' in row['signal_type'] %}sell{% else %}no-trade{% endif %}">
                         <strong>{{ row['signal_type'] }}</strong>

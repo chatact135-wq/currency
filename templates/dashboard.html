@@ -97,8 +97,13 @@
                             ` : ''}
                             
                             <div style="margin-top:15px; font-size:0.85rem; color:#64748b;">
-                                ${signal.expected_move_minutes ? `Expected move: ${signal.expected_move_minutes} minutes` : ''}
+                                ${signal.signal_age ? `Signal generated ${signal.signal_age} minutes ago` : ''}
+                                ${signal.expected_move_minutes ? ` • Expected move: ${signal.expected_move_minutes} minutes` : ''}
                             </div>
+                            ${signal.is_old ? `
+                            <div style="background:#f59e0b; color:#1f2937; padding:8px; border-radius:6px; margin-top:10px; font-weight:600; text-align:center;">
+                                ⚠️ SIGNAL IS GETTING OLD (${signal.signal_age} min) - Higher risk if entering now
+                            </div>` : ''}
                         </div>
                     `;
                 }
@@ -111,7 +116,8 @@
         }
         
         fetchSignals();
-        setInterval(fetchSignals, {{ refresh_seconds }} * 1000);
+        // Auto-refresh every 30 seconds
+        setInterval(fetchSignals, 30000);
     </script>
 </body>
 </html>
