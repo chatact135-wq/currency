@@ -130,11 +130,16 @@ async def review_page(request: Request):
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
+        # Show last 24 hours (from 12am to 12am next day)
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        twenty_four_hours_ago = (now - timedelta(hours=24)).isoformat()
+        
         cursor.execute("""
             SELECT * FROM signals 
-            ORDER BY timestamp DESC 
-            LIMIT 50
-        """)
+            WHERE timestamp >= ?
+            ORDER BY timestamp DESC
+        """, (twenty_four_hours_ago,))
         history = cursor.fetchall()
         conn.close()
         
