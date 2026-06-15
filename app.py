@@ -52,16 +52,18 @@ async def analyze_all() -> dict:
     results = {}
     for symbol in SYMBOLS:
         try:
-            df = await fetch_twelvedata_candles(symbol, "15min", 200)
+            df_m15 = await fetch_twelvedata_candles(symbol, "15min", 200)
+            df_h4 = await fetch_twelvedata_candles(symbol, "4h", 100)
             source = "TwelveData Live"
             error = None
         except Exception as e:
-            df = fallback_demo_data(symbol)
+            df_m15 = fallback_demo_data(symbol)
+            df_h4 = None
             source = "DEMO MODE (No API Key)"
             error = str(e)
 
-        signal = analyze_symbol(symbol, df)
-        current_price = signal.get("price") or float(df["close"].iloc[-1])
+        signal = analyze_symbol(symbol, df_m15, df_h4)
+        current_price = signal.get("price") or float(df_m15["close"].iloc[-1])
 
         signal["symbol"] = symbol
         signal["source"] = source

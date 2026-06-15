@@ -28,17 +28,17 @@ def detect_market_structure(df: pd.DataFrame) -> str:
         return "bearish"
     return "ranging"
 
-def analyze_symbol(symbol: str, df: pd.DataFrame) -> Dict[str, Any]:
+def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None) -> Dict[str, Any]:
     """
-    EdgeFlow Pro v2 - High Confluence Strategy Engine
+    EdgeFlow Pro v2 - High Confluence Strategy Engine with H4 Filter
     Focused on EUR/USD and GBP/USD
     """
-    if len(df) < 60:
+    if len(df_m15) < 60:
         return {"signal": "NO TRADE", "reason": "Insufficient data", "confidence": 0}
 
-    df = df.copy()
+    df = df_m15.copy()
     
-    # Indicators
+    # M15 Indicators
     df['ema_50'] = df['close'].ewm(span=50).mean()
     df['ema_200'] = df['close'].ewm(span=200).mean()
     df['rsi'] = 100 - (100 / (1 + (df['close'].diff().clip(lower=0).rolling(14).mean() / 
@@ -53,21 +53,21 @@ def analyze_symbol(symbol: str, df: pd.DataFrame) -> Dict[str, Any]:
     score = 0
     reasons = []
 
-    # === Trend Alignment ===
+    # === M15 Trend Alignment ===
     if current_price > df['ema_50'].iloc[-1] > df['ema_200'].iloc[-1]:
         score += 30
-        reasons.append("Strong bullish trend")
+        reasons.append("Strong bullish trend (M15)")
     elif current_price < df['ema_50'].iloc[-1] < df['ema_200'].iloc[-1]:
         score += 30
-        reasons.append("Strong bearish trend")
+        reasons.append("Strong bearish trend (M15)")
 
-    # === Market Structure ===
+    # === M15 Market Structure ===
     if structure == "bullish":
         score += 25
-        reasons.append("Bullish market structure")
+        reasons.append("Bullish market structure (M15)")
     elif structure == "bearish":
         score += 25
-        reasons.append("Bearish market structure")
+        reasons.append("Bearish market structure (M15)")
 
     # === RSI Filter ===
     rsi = df['rsi'].iloc[-1]
@@ -83,36 +83,51 @@ def analyze_symbol(symbol: str, df: pd.DataFrame) -> Dict[str, Any]:
         score += 15
         reasons.append("Sufficient volatility")
 
-    # === Final Decision (Balanced High-Quality Mode) ===
-    if score >= 72:
+    # === H4 Filter (New) ===
+    h4_aligned = True
+    if df_h4 is not None and len(df_h4) >= 30:
+        h4_ema50 = df_h4['close'].ewm(span=50).mean().iloc[-1]
+        h4_structure = detect_market_structure(df_h4)
+        
+        if current_price > h4_ema50 and h4_structure == "bullish":
+            score += 20
+            reasons.append("H4 trend aligned (bullish)")
+        elif current_price < h4_ema50 and h4_structure == "bearish":
+            score += 20
+            reasons.append("H4 trend aligned (bearish)")
+        else:
+            h4_aligned = False
+            score -= 15
+            reasons.append("H4 not fully aligned - reduced score")
+
+    # === Final Decision with H4 awareness ===
+    min_score = 65 if h4_aligned else 78   # Slightly stricter if H4 disagrees
+
+    if score >= min_score:
         direction = "BUY"
         entry = round(current_price, 5)
         stop_loss = round(current_price - (atr * 1.2), 5)
         take_profit = round(current_price + (atr * 2.0), 5)
         confidence = min(score + 3, 93)
-    elif score <= 28:
+    elif score <= (100 - min_score):
         direction = "SELL"
         entry = round(current_price, 5)
         stop_loss = round(current_price + (atr * 1.2), 5)
         take_profit = round(current_price - (atr * 2.0), 5)
         confidence = min(100 - score + 3, 93)
     else:
-        detailed_reason = "Low confluence score (" + str(score) + "/100). "
+        detailed_reason = f"Low confluence (score: {score}). "
+        if not h4_aligned:
+            detailed_reason += "H4 trend not aligned with M15. "
         if structure == "ranging":
-            detailed_reason += "Ranging market structure detected. "
-        elif "trend" not in " ".join(reasons).lower():
-            detailed_reason += "No clear higher timeframe trend alignment. "
-        if rsi < 35 or rsi > 70:
-            detailed_reason += f"RSI at {round(rsi,1)} (extreme). "
-        if atr <= df['atr_ma'].iloc[-1] * 0.85:
-            detailed_reason += "Low volatility period. "
+            detailed_reason += "Ranging on M15. "
         
         return {
             "signal": "NO TRADE",
             "reason": detailed_reason.strip(),
-            "confidence": score,
+            "confidence": max(score, 0),
             "price": current_price,
-            "reasons": reasons + ["Waiting for stronger alignment"]
+            "reasons": reasons
         }
 
     return {
@@ -126,5 +141,5 @@ def analyze_symbol(symbol: str, df: pd.DataFrame) -> Dict[str, Any]:
         "atr": round(atr, 5),
         "price": current_price,
         "expected_move_minutes": "25-70",
-        "timeframe": "M15 + H4 Balanced Confluence"
+        "timeframe": "M15 + H4 Filtered Confluence"
     }
