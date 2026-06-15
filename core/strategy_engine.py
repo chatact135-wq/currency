@@ -83,25 +83,25 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
         score += 15
         reasons.append("Sufficient volatility")
 
-    # === H4 Filter (New) ===
+    # === H4 Filter (Less Strict Version) ===
     h4_aligned = True
     if df_h4 is not None and len(df_h4) >= 30:
         h4_ema50 = df_h4['close'].ewm(span=50).mean().iloc[-1]
         h4_structure = detect_market_structure(df_h4)
         
         if current_price > h4_ema50 and h4_structure == "bullish":
-            score += 20
+            score += 15
             reasons.append("H4 trend aligned (bullish)")
         elif current_price < h4_ema50 and h4_structure == "bearish":
-            score += 20
+            score += 15
             reasons.append("H4 trend aligned (bearish)")
         else:
             h4_aligned = False
-            score -= 15
-            reasons.append("H4 not fully aligned - reduced score")
+            score -= 8   # Much smaller penalty
+            reasons.append("H4 not fully aligned (minor reduction)")
 
-    # === Final Decision with H4 awareness ===
-    min_score = 65 if h4_aligned else 78   # Slightly stricter if H4 disagrees
+    # === Final Decision (same threshold regardless of H4) ===
+    min_score = 68
 
     if score >= min_score:
         direction = "BUY"
@@ -118,7 +118,7 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
     else:
         detailed_reason = f"Low confluence (score: {score}). "
         if not h4_aligned:
-            detailed_reason += "H4 trend not aligned with M15. "
+            detailed_reason += "H4 not fully aligned. "
         if structure == "ranging":
             detailed_reason += "Ranging on M15. "
         
