@@ -50,16 +50,27 @@
     </div>
 
     <script>
-        // Store signal start times in localStorage so timer survives refresh
-        function getSignalStartTime(symbol) {
-            const key = 'signal_start_' + symbol;
-            let startTime = localStorage.getItem(key);
+        // Store signal start times + last signal type so timer resets on new signal
+        function getSignalStartTime(symbol, currentSignalType) {
+            const startKey = 'signal_start_' + symbol;
+            const typeKey = 'signal_last_type_' + symbol;
+            
+            let lastType = localStorage.getItem(typeKey);
+            let startTime = localStorage.getItem(startKey);
+            
+            // Reset timer if signal type changed (e.g. NO TRADE → BUY, or BUY → SELL)
+            if (!lastType || lastType !== currentSignalType) {
+                startTime = Date.now();
+                localStorage.setItem(startKey, startTime);
+                localStorage.setItem(typeKey, currentSignalType);
+            }
             
             if (!startTime) {
-                // First time seeing this signal - set now
                 startTime = Date.now();
-                localStorage.setItem(key, startTime);
+                localStorage.setItem(startKey, startTime);
+                localStorage.setItem(typeKey, currentSignalType);
             }
+            
             return parseInt(startTime);
         }
 
@@ -120,8 +131,9 @@
                             </div>
                         `;
                     } else {
-                        // Get or set start time for live timer
-                        const startTime = getSignalStartTime(symbol);
+                        // Get or set start time for live timer (reset if signal type changed)
+                        const currentSignalType = signal.signal || 'NO TRADE';
+                        const startTime = getSignalStartTime(symbol, currentSignalType);
                         
                         cardHTML = `
                             <div class="signal-card ${signal.signal && signal.signal.includes('BUY') ? 'buy' : signal.signal && signal.signal.includes('SELL') ? 'sell' : 'no-trade'}">

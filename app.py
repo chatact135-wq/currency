@@ -107,15 +107,18 @@ async def analyze_all() -> dict:
         if "DEMO" in source:
             continue
 
-        # Save to persistent journal
+        # Save to persistent journal (use local time for display)
         try:
+            from datetime import timedelta
+            local_time_str = (datetime.now(timezone.utc) + timedelta(hours=4)).strftime("%Y-%m-%d %H:%M:%S")
+            
             conn = sqlite3.connect(DB_PATH)
             conn.execute("""
                 INSERT INTO signals 
                 (timestamp, symbol, signal_type, price, confidence, reasons, expected_time, entry, stop_loss, take_profit)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                signal["signal_time_utc"],
+                local_time_str,
                 symbol,
                 signal.get("signal", "NO TRADE"),
                 current_price,
