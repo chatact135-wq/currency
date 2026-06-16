@@ -101,11 +101,21 @@ async def analyze_all() -> dict:
         # Add is_old flag for warning
         signal["is_old"] = False
         results[symbol] = signal
-        _LAST_SIGNALS[symbol] = signal
 
-        # Only save to journal if we have real live data
+        # Only save to journal if we have real live data AND signal actually changed
         if "DEMO" in source:
+            _LAST_SIGNALS[symbol] = signal
             continue
+
+        previous_signal = _LAST_SIGNALS.get(symbol, {}).get("signal", "")
+        current_signal_type = signal.get("signal", "NO TRADE")
+
+        # Only log if the signal type changed (prevents duplicates)
+        if current_signal_type == previous_signal:
+            _LAST_SIGNALS[symbol] = signal
+            continue
+
+        _LAST_SIGNALS[symbol] = signal
 
         # Save to persistent journal (use local time for display)
         try:
