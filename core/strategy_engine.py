@@ -2,7 +2,6 @@ from __future__ import annotations
 import pandas as pd
 import numpy as np
 from typing import Dict, Any
-from datetime import datetime, timezone
 
 def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     high = df['high']
@@ -29,68 +28,29 @@ def detect_market_structure(df: pd.DataFrame) -> str:
         return "bearish"
     return "ranging"
 
-def detect_candlestick_confirmation(df: pd.DataFrame, direction: str) -> bool:
-    """
-    Simple but effective candlestick confirmation
-    """
-    if len(df) < 3:
+def detect_strong_candle(df: pd.DataFrame, direction: str) -> bool:
+    """Require a strong momentum candle for entry"""
+    if len(df) < 2:
         return False
     
-    last_candle = df.iloc[-1]
-    prev_candle = df.iloc[-2]
-    
-    body = abs(last_candle['close'] - last_candle['open'])
-    candle_range = last_candle['high'] - last_candle['low']
+    last = df.iloc[-1]
+    body = abs(last['close'] - last['open'])
+    candle_range = last['high'] - last['low']
     
     if candle_range == 0:
         return False
     
-    # Strong momentum candle (body > 60% of range)
-    strong_body = body > (candle_range * 0.6)
+    strong_body = body > (candle_range * 0.55)  # Strong body
     
     if direction == "bullish":
-        # Bullish confirmation: strong green candle closing near high
-        is_bullish = last_candle['close'] > last_candle['open']
-        closes_strong = last_candle['close'] > (last_candle['high'] - body * 0.3)
-        return is_bullish and strong_body and closes_strong
-    
-    elif direction == "bearish":
-        # Bearish confirmation: strong red candle closing near low
-        is_bearish = last_candle['close'] < last_candle['open']
-        closes_strong = last_candle['close'] < (last_candle['low'] + body * 0.3)
-        return is_bearish and strong_body and closes_strong
-    
-    return False
-
-def get_swing_stop_loss(df: pd.DataFrame, direction: str, atr: float) -> float:
-    """
-    Use recent swing for more logical stop loss
-    """
-    if len(df) < 10:
-        current_price = float(df['close'].iloc[-1])
-        if direction == "BUY":
-            return round(current_price - (atr * 1.3), 5)
-        else:
-            return round(current_price + (atr * 1.3), 5)
-    
-    if direction == "BUY":
-        # For BUY, stop below recent swing low
-        swing_low = df['low'].iloc[-8:].min()
-        current_price = float(df['close'].iloc[-1])
-        # Use the better (tighter but logical) of swing or ATR
-        atr_sl = current_price - (atr * 1.3)
-        return round(max(swing_low - 0.0001, atr_sl), 5)
+        return last['close'] > last['open'] and strong_body
     else:
-        # For SELL, stop above recent swing high
-        swing_high = df['high'].iloc[-8:].max()
-        current_price = float(df['close'].iloc[-1])
-        atr_sl = current_price + (atr * 1.3)
-        return round(min(swing_high + 0.0001, atr_sl), 5)
+        return last['close'] < last['open'] and strong_body
 
 def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None) -> Dict[str, Any]:
     """
-    EdgeFlow Pro - Smart Confluence Version
-    Professional-grade logic with H4 direction filter + Candle confirmation
+    EdgeFlow Pro - Balanced Accurate Short-Term Version
+    Focus: Good quality signals + Reasonable frequency + Short-term moves
     """
     if len(df_m15) < 60:
         return {"signal": "NO TRADE", "reason": "Insufficient data", "confidence": 0}
@@ -111,107 +71,77 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
     
     score = 0
     reasons = []
-    h4_direction = None
 
-    # === 1. H4 Direction Filter (Mandatory) ===
-    h4_bullish = False
-    h4_bearish = False
-    
-    if df_h4 is not None and len(df_h4) >= 30:
-        h4_ema50 = df_h4['close'].ewm(span=50).mean().iloc[-1]
-        h4_structure = detect_market_structure(df_h4)
-        
-        if current_price > h4_ema50 and h4_structure == "bullish":
-            h4_bullish = True
-            h4_direction = "bullish"
-            score += 25
-            reasons.append("H4 strongly bullish")
-        elif current_price < h4_ema50 and h4_structure == "bearish":
-            h4_bearish = True
-            h4_direction = "bearish"
-            score += 25
-            reasons.append("H4 strongly bearish")
-        else:
-            # H4 not clearly aligned - we will be stricter later
-            reasons.append("H4 direction unclear")
-
-    # === 2. M15 Trend Alignment ===
+    # === 1. M15 Trend (Core) ===
     m15_bullish = current_price > df['ema_50'].iloc[-1] > df['ema_200'].iloc[-1]
     m15_bearish = current_price < df['ema_50'].iloc[-1] < df['ema_200'].iloc[-1]
     
     if m15_bullish:
-        score += 25
+        score += 28
         reasons.append("Strong bullish trend (M15)")
     elif m15_bearish:
-        score += 25
+        score += 28
         reasons.append("Strong bearish trend (M15)")
 
-    # === 3. Market Structure ===
+    # === 2. Market Structure ===
     if structure == "bullish":
-        score += 20
+        score += 22
         reasons.append("Bullish market structure (M15)")
     elif structure == "bearish":
-        score += 20
+        score += 22
         reasons.append("Bearish market structure (M15)")
 
-    # === 4. RSI Momentum ===
+    # === 3. RSI Momentum ===
     rsi = df['rsi'].iloc[-1]
-    if 48 < rsi < 62:
-        score += 12
+    if 47 < rsi < 63:
+        score += 14
         reasons.append("Healthy momentum (RSI)")
-    elif rsi < 38:
-        score += 8
-        reasons.append("Oversold - possible reversal")
 
-    # === 5. Volatility ===
-    if atr > df['atr_ma'].iloc[-1] * 0.9:
-        score += 10
+    # === 4. Volatility ===
+    if atr > df['atr_ma'].iloc[-1] * 0.88:
+        score += 12
         reasons.append("Good volatility")
 
-    # === 6. Candlestick Confirmation (Important) ===
-    candle_confirmed = False
-    if m15_bullish or (h4_bullish and not m15_bearish):
-        if detect_candlestick_confirmation(df, "bullish"):
+    # === 5. H4 Bias (Not mandatory, but gives bonus) ===
+    h4_aligned = False
+    if df_h4 is not None and len(df_h4) >= 30:
+        h4_ema50 = df_h4['close'].ewm(span=50).mean().iloc[-1]
+        h4_structure = detect_market_structure(df_h4)
+        
+        if (m15_bullish and current_price > h4_ema50 and h4_structure == "bullish") or \
+           (m15_bearish and current_price < h4_ema50 and h4_structure == "bearish"):
             score += 15
-            reasons.append("Strong bullish candle confirmation")
-            candle_confirmed = True
-    elif m15_bearish or (h4_bearish and not m15_bullish):
-        if detect_candlestick_confirmation(df, "bearish"):
-            score += 15
-            reasons.append("Strong bearish candle confirmation")
-            candle_confirmed = True
+            reasons.append("H4 aligned with M15")
+            h4_aligned = True
+        else:
+            score -= 6
+            reasons.append("H4 not fully aligned")
 
-    # === Final Decision Logic (H4 is now STRICTLY MANDATORY) ===
-    
-    has_trend = m15_bullish or m15_bearish
-    has_h4_support = (m15_bullish and h4_bullish) or (m15_bearish and h4_bearish)
-    
-    min_score = 70
+    # === 6. Strong Candle Confirmation (Important for short-term) ===
+    if m15_bullish and detect_strong_candle(df, "bullish"):
+        score += 18
+        reasons.append("Strong bullish candle")
+    elif m15_bearish and detect_strong_candle(df, "bearish"):
+        score += 18
+        reasons.append("Strong bearish candle")
 
-    # If we have trend but H4 does not support it → NO TRADE
-    if has_trend and not has_h4_support:
-        return {
-            "signal": "NO TRADE",
-            "reason": "H4 direction does not support M15 move",
-            "confidence": score,
-            "price": current_price,
-            "reasons": reasons
-        }
-    
-    if score >= min_score and has_h4_support:
+    # === Final Decision ===
+    min_score = 68   # Balanced threshold
+
+    if score >= min_score and (m15_bullish or m15_bearish):
         
         if m15_bullish:
             direction = "BUY"
             entry = round(current_price, 5)
-            stop_loss = get_swing_stop_loss(df, direction, atr)
-            take_profit = round(current_price + (atr * 2.2), 5)
-            confidence = min(score + 5, 92)
+            stop_loss = round(current_price - (atr * 1.15), 5)
+            take_profit = round(current_price + (atr * 1.9), 5)
+            confidence = min(score + 4, 91)
         else:
             direction = "SELL"
             entry = round(current_price, 5)
-            stop_loss = get_swing_stop_loss(df, direction, atr)
-            take_profit = round(current_price - (atr * 2.2), 5)
-            confidence = min(score + 5, 92)
+            stop_loss = round(current_price + (atr * 1.15), 5)
+            take_profit = round(current_price - (atr * 1.9), 5)
+            confidence = min(score + 4, 91)
             
         return {
             "signal": f"TRADE NOW {direction}",
@@ -223,14 +153,16 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
             "reasons": reasons,
             "atr": round(atr, 5),
             "price": current_price,
-            "expected_move_minutes": "30-80",
-            "timeframe": "H4 Mandatory + Candle Confirmation"
+            "expected_move_minutes": "15-45",
+            "timeframe": "Balanced Short-Term (M15 + Candle)"
         }
     
     else:
         detailed_reason = f"Low confluence (score: {score}). "
         if structure == "ranging":
-            detailed_reason += "Ranging on M15. "
+            detailed_reason += "Ranging market. "
+        if not (m15_bullish or m15_bearish):
+            detailed_reason += "No clear M15 trend. "
             
         return {
             "signal": "NO TRADE",
