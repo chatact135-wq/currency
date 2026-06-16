@@ -115,7 +115,7 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
             h4_aligned = True
         else:
             score -= 6
-            reasons.append("H4 not fully aligned")
+            reasons.append("H4 not aligned (neutral)")
 
     # === 6. Strong Candle Confirmation (Important for short-term) ===
     if m15_bullish and detect_strong_candle(df, "bullish"):
@@ -126,7 +126,7 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
         reasons.append("Strong bearish candle")
 
     # === Final Decision ===
-    min_score = 68   # Balanced threshold
+    min_score = 65   # Slightly more signals while keeping quality
 
     if score >= min_score and (m15_bullish or m15_bearish):
         
