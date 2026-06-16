@@ -88,9 +88,11 @@ async def analyze_all() -> dict:
         try:
             from datetime import timedelta
             local_time = datetime.now(timezone.utc) + timedelta(hours=4)
-            signal["signal_time_local"] = local_time.strftime("%Y-%m-%d %H:%M:%S")
+            signal["signal_time_local"] = local_time.strftime("%H:%M:%S")
+            signal["signal_generated_at"] = local_time.strftime("%H:%M")
         except:
             signal["signal_time_local"] = signal["signal_time_utc"]
+            signal["signal_generated_at"] = "N/A"
         
         # Signal age for freshness warning
         # Calculate signal age (for freshness)

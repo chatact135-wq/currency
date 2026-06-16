@@ -50,6 +50,43 @@
     </div>
 
     <script>
+        // Store signal start times in localStorage so timer survives refresh
+        function getSignalStartTime(symbol) {
+            const key = 'signal_start_' + symbol;
+            let startTime = localStorage.getItem(key);
+            
+            if (!startTime) {
+                // First time seeing this signal - set now
+                startTime = Date.now();
+                localStorage.setItem(key, startTime);
+            }
+            return parseInt(startTime);
+        }
+
+        function updateLiveTimers() {
+            const cards = document.querySelectorAll('.signal-card');
+            cards.forEach(card => {
+                const timerEl = card.querySelector('.live-timer');
+                if (!timerEl) return;
+
+                const startTime = parseInt(timerEl.dataset.startTime);
+                if (!startTime) return;
+
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+
+                let timeText = '';
+                if (minutes > 0) {
+                    timeText = `${minutes}m ${seconds}s ago`;
+                } else {
+                    timeText = `${seconds}s ago`;
+                }
+
+                timerEl.textContent = `Signal started ${timeText}`;
+            });
+        }
+
         async function fetchSignals() {
             try {
                 const res = await fetch('/api/signals');
@@ -57,26 +94,20 @@
                 
                 let html = '';
                 
-                // Show big warning if any signal is in demo mode
-                const isDemo = Object.values(data.signals).some(s => s.source && s.source.includes('DEMO'));
-                if (isDemo) {
+                const isDemoMode = Object.values(data.signals).some(s => s.source && s.source.includes('DEMO'));
+                if (isDemoMode) {
                     document.getElementById('demo-warning').style.display = 'block';
                 }
 
                 for (const [symbol, signal] of Object.entries(data.signals)) {
-                    let cardClass = 'no-trade';
-                    if (signal.signal && signal.signal.includes('BUY')) cardClass = 'buy';
-                    if (signal.signal && signal.signal.includes('SELL')) cardClass = 'sell';
-                    
                     const isDemo = signal.source && signal.source.includes('DEMO');
                     const sourceText = isDemo 
                         ? `<span style="color:#f87171; font-size:0.85rem;">(No Live Data)</span>` 
                         : '';
                     
                     let cardHTML = '';
-                    
+
                     if (isDemo || signal.signal === "NO LIVE DATA") {
-                        // Demo mode - show clean message, no fake trade
                         cardHTML = `
                             <div class="signal-card no-trade">
                                 <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -84,13 +115,16 @@
                                 </div>
                                 <div style="margin: 20px 0; text-align: center;">
                                     <div style="font-size:1.6rem; font-weight:700; color:#f87171;">NO LIVE DATA</div>
-                                    <div style="margin-top:8px; color:#94a3b8;">TwelveData API key is missing or invalid.<br>Real prices are not available right now.</div>
+                                    <div style="margin-top:8px; color:#94a3b8;">TwelveData API key missing or invalid.<br>Real prices not available.</div>
                                 </div>
                             </div>
                         `;
                     } else {
+                        // Get or set start time for live timer
+                        const startTime = getSignalStartTime(symbol);
+                        
                         cardHTML = `
-                            <div class="signal-card ${cardClass}">
+                            <div class="signal-card ${signal.signal && signal.signal.includes('BUY') ? 'buy' : signal.signal && signal.signal.includes('SELL') ? 'sell' : 'no-trade'}">
                                 <div style="display:flex; justify-content:space-between; align-items:center;">
                                     <h2 style="margin:0;">${symbol} ${sourceText}</h2>
                                     <div style="font-size:1.8rem; font-weight:700; color: ${signal.direction === 'BUY' ? '#22c55e' : signal.direction === 'SELL' ? '#ef4444' : '#64748b'}">
@@ -113,9 +147,12 @@
                                     </div>
                                 ` : ''}
                                 
-                                <div style="margin-top:15px; font-size:0.85rem; color:#64748b;">
-                                    ${signal.signal_age ? `Signal generated ${signal.signal_age} minutes ago` : ''}
-                                    ${signal.expected_move_minutes ? ` • Expected move: ${signal.expected_move_minutes} minutes` : ''}
+                                <div style="margin-top:12px; font-size:0.9rem; color:#60a5fa; font-weight:500;">
+                                    <span class="live-timer" data-start-time="${startTime}">Signal started calculating...</span>
+                                </div>
+                                
+                                <div style="margin-top:6px; font-size:0.8rem; color:#64748b;">
+                                    ${signal.expected_move_minutes ? `Expected move: ${signal.expected_move_minutes} minutes` : ''}
                                 </div>
                             </div>
                         `;
@@ -125,15 +162,25 @@
                 }
                 
                 document.getElementById('signals-container').innerHTML = html;
+                
+                // Start live timer updates
+                setTimeout(() => {
+                    updateLiveTimers();
+                }, 100);
+                
             } catch (e) {
-                document.getElementById('signals-container').innerHTML = '<p style="color:#ef4444;">Error loading signals. Check console.</p>';
+                document.getElementById('signals-container').innerHTML = '<p style="color:#ef4444;">Error loading signals.</p>';
                 console.error(e);
             }
         }
         
         fetchSignals();
+        
         // Auto-refresh every 30 seconds
         setInterval(fetchSignals, 30000);
+        
+        // Update live timers every second
+        setInterval(updateLiveTimers, 1000);
     </script>
 </body>
 </html>
