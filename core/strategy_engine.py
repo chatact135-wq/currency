@@ -102,31 +102,26 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
         score += 12
         reasons.append("Good volatility")
 
-    # === 5. H4 Bias (Not mandatory, but gives bonus) ===
-    h4_aligned = False
+    # === 5. H4 Bias (Very light - almost neutral) ===
     if df_h4 is not None and len(df_h4) >= 30:
         h4_ema50 = df_h4['close'].ewm(span=50).mean().iloc[-1]
         h4_structure = detect_market_structure(df_h4)
         
         if (m15_bullish and current_price > h4_ema50 and h4_structure == "bullish") or \
            (m15_bearish and current_price < h4_ema50 and h4_structure == "bearish"):
-            score += 15
+            score += 10
             reasons.append("H4 aligned with M15")
-            h4_aligned = True
-        else:
-            score -= 6
-            reasons.append("H4 not aligned (neutral)")
 
     # === 6. Strong Candle Confirmation (Important for short-term) ===
     if m15_bullish and detect_strong_candle(df, "bullish"):
-        score += 18
+        score += 20
         reasons.append("Strong bullish candle")
     elif m15_bearish and detect_strong_candle(df, "bearish"):
-        score += 18
+        score += 20
         reasons.append("Strong bearish candle")
 
     # === Final Decision ===
-    min_score = 65   # Slightly more signals while keeping quality
+    min_score = 70   # Slightly stricter for better quality
 
     if score >= min_score and (m15_bullish or m15_bearish):
         
