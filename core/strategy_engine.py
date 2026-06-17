@@ -196,21 +196,21 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
         score += 18
         reasons.append("Strong bearish candle confirmation")
 
-    min_score = 78
+    min_score = 80   # Made stricter to reduce duplicates and late signals
 
     if score >= min_score and (m15_bullish or m15_bearish):
         
         if m15_bullish:
             direction = "BUY"
             entry = round(current_price, 5)
-            stop_loss = round(current_price - (atr * 1.25), 5)
-            take_profit = round(current_price + (atr * 2.1), 5)
+            stop_loss = round(current_price - (atr * 1.3), 5)
+            take_profit = round(current_price + (atr * 2.2), 5)
             confidence = min(score + 5, 93)
         else:
             direction = "SELL"
             entry = round(current_price, 5)
-            stop_loss = round(current_price + (atr * 1.25), 5)
-            take_profit = round(current_price - (atr * 2.1), 5)
+            stop_loss = round(current_price + (atr * 1.3), 5)
+            take_profit = round(current_price - (atr * 2.2), 5)
             confidence = min(score + 5, 93)
             
         structure_broken = check_structure_break(df, direction)
