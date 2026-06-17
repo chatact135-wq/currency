@@ -14,34 +14,52 @@ def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     return tr.rolling(period).mean()
 
 def detect_market_structure(df: pd.DataFrame) -> str:
-    if len(df) < 20:
+    """Improved Market Structure detection (BOS style)"""
+    if len(df) < 25:
         return "neutral"
     
-    recent_high = df['high'].iloc[-6:].max()
-    recent_low = df['low'].iloc[-6:].min()
-    prev_high = df['high'].iloc[-15:-6].max()
-    prev_low = df['low'].iloc[-15:-6].min()
+    recent_high = df['high'].iloc[-5:].max()
+    recent_low = df['low'].iloc[-5:].min()
+    prev_high = df['high'].iloc[-15:-5].max()
+    prev_low = df['low'].iloc[-15:-5].min()
     
     if recent_high > prev_high and recent_low > prev_low:
-        return "bullish"
+        return "bullish_bos"
     elif recent_high < prev_high and recent_low < prev_low:
-        return "bearish"
+        return "bearish_bos"
     return "ranging"
 
-def detect_strong_candle(df: pd.DataFrame, direction: str) -> bool:
-    """Require a strong momentum candle for entry"""
-    if len(df) < 2:
+def find_order_block(df: pd.DataFrame, direction: str) -> bool:
+    """Simple Order Block detection"""
+    if len(df) < 10:
         return False
     
+    if direction == "bullish":
+        for i in range(-6, -2):
+            candle = df.iloc[i]
+            if candle['close'] < candle['open']:
+                next_candle = df.iloc[i+1]
+                if next_candle['close'] > next_candle['open'] and next_candle['close'] > candle['high']:
+                    return True
+        return False
+    else:
+        for i in range(-6, -2):
+            candle = df.iloc[i]
+            if candle['close'] > candle['open']:
+                next_candle = df.iloc[i+1]
+                if next_candle['close'] < next_candle['open'] and next_candle['close'] < candle['low']:
+                    return True
+        return False
+
+def detect_strong_candle(df: pd.DataFrame, direction: str) -> bool:
+    if len(df) < 2:
+        return False
     last = df.iloc[-1]
     body = abs(last['close'] - last['open'])
     candle_range = last['high'] - last['low']
-    
     if candle_range == 0:
         return False
-    
-    strong_body = body > (candle_range * 0.55)  # Strong body
-    
+    strong_body = body > (candle_range * 0.6)
     if direction == "bullish":
         return last['close'] > last['open'] and strong_body
     else:
@@ -49,15 +67,14 @@ def detect_strong_candle(df: pd.DataFrame, direction: str) -> bool:
 
 def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None) -> Dict[str, Any]:
     """
-    EdgeFlow Pro - Balanced Accurate Short-Term Version
-    Focus: Good quality signals + Reasonable frequency + Short-term moves
+    EdgeFlow Pro - Professional Version
+    Best combination of Trend, Structure, Order Block, Candle & Confluence
     """
     if len(df_m15) < 60:
         return {"signal": "NO TRADE", "reason": "Insufficient data", "confidence": 0}
 
     df = df_m15.copy()
     
-    # Indicators
     df['ema_50'] = df['close'].ewm(span=50).mean()
     df['ema_200'] = df['close'].ewm(span=200).mean()
     df['rsi'] = 100 - (100 / (1 + (df['close'].diff().clip(lower=0).rolling(14).mean() / 
@@ -72,71 +89,77 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
     score = 0
     reasons = []
 
-    # === 1. M15 Trend (Core) ===
+    # === 1. Strong Trend ===
     m15_bullish = current_price > df['ema_50'].iloc[-1] > df['ema_200'].iloc[-1]
     m15_bearish = current_price < df['ema_50'].iloc[-1] < df['ema_200'].iloc[-1]
     
     if m15_bullish:
-        score += 28
+        score += 25
         reasons.append("Strong bullish trend (M15)")
     elif m15_bearish:
-        score += 28
+        score += 25
         reasons.append("Strong bearish trend (M15)")
 
-    # === 2. Market Structure ===
-    if structure == "bullish":
+    # === 2. Market Structure (BOS) ===
+    if structure == "bullish_bos":
         score += 22
-        reasons.append("Bullish market structure (M15)")
-    elif structure == "bearish":
+        reasons.append("Bullish Break of Structure")
+    elif structure == "bearish_bos":
         score += 22
-        reasons.append("Bearish market structure (M15)")
+        reasons.append("Bearish Break of Structure")
 
-    # === 3. RSI Momentum ===
+    # === 3. Order Block ===
+    if m15_bullish and find_order_block(df, "bullish"):
+        score += 15
+        reasons.append("Bullish Order Block present")
+    elif m15_bearish and find_order_block(df, "bearish"):
+        score += 15
+        reasons.append("Bearish Order Block present")
+
+    # === 4. RSI Momentum ===
     rsi = df['rsi'].iloc[-1]
-    if 47 < rsi < 63:
-        score += 14
+    if 48 < rsi < 62:
+        score += 12
         reasons.append("Healthy momentum (RSI)")
 
-    # === 4. Volatility ===
-    if atr > df['atr_ma'].iloc[-1] * 0.88:
-        score += 12
+    # === 5. Volatility ===
+    if atr > df['atr_ma'].iloc[-1] * 0.9:
+        score += 10
         reasons.append("Good volatility")
 
-    # === 5. H4 Bias (Very light - almost neutral) ===
+    # === 6. H4 Light Bias ===
     if df_h4 is not None and len(df_h4) >= 30:
         h4_ema50 = df_h4['close'].ewm(span=50).mean().iloc[-1]
         h4_structure = detect_market_structure(df_h4)
-        
-        if (m15_bullish and current_price > h4_ema50 and h4_structure == "bullish") or \
-           (m15_bearish and current_price < h4_ema50 and h4_structure == "bearish"):
-            score += 10
-            reasons.append("H4 aligned with M15")
+        if (m15_bullish and current_price > h4_ema50) or (m15_bearish and current_price < h4_ema50):
+            score += 8
+            reasons.append("H4 bias aligned")
 
-    # === 6. Strong Candle Confirmation (Important for short-term) ===
+    # === 7. Strong Candle Confirmation ===
     if m15_bullish and detect_strong_candle(df, "bullish"):
         score += 20
-        reasons.append("Strong bullish candle")
+        reasons.append("Strong bullish candle confirmation")
     elif m15_bearish and detect_strong_candle(df, "bearish"):
         score += 20
-        reasons.append("Strong bearish candle")
+        reasons.append("Strong bearish candle confirmation")
 
     # === Final Decision ===
-    min_score = 70   # Slightly stricter for better quality
+    min_score = 72
 
     if score >= min_score and (m15_bullish or m15_bearish):
         
         if m15_bullish:
             direction = "BUY"
             entry = round(current_price, 5)
-            stop_loss = round(current_price - (atr * 1.15), 5)
-            take_profit = round(current_price + (atr * 1.9), 5)
-            confidence = min(score + 4, 91)
+            stop_loss = round(current_price - (atr * 1.2), 5)
+            take_profit = round(current_price + (atr * 2.0), 5)
+            confidence = min(score + 5, 92)
         else:
             direction = "SELL"
             entry = round(current_price, 5)
-            stop_loss = round(current_price + (atr * 1.15), 5)
-            take_profit = round(current_price - (atr * 1.9), 5)
-            confidence = min(score + 4, 91)
+            stop_loss = round(current_price + (atr * 1.2), 5)
+            take_profit = round(current_price - (atr * 2.0), 5)
+            confidence = min(score + 5, 92)
             
         return {
             "signal": f"TRADE NOW {direction}",
@@ -148,16 +171,14 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
             "reasons": reasons,
             "atr": round(atr, 5),
             "price": current_price,
-            "expected_move_minutes": "15-45",
-            "timeframe": "Balanced Short-Term (M15 + Candle)"
+            "expected_move_minutes": "20-50",
+            "timeframe": "Professional (Structure + OB + Candle)"
         }
     
     else:
         detailed_reason = f"Low confluence (score: {score}). "
         if structure == "ranging":
-            detailed_reason += "Ranging market. "
-        if not (m15_bullish or m15_bearish):
-            detailed_reason += "No clear M15 trend. "
+            detailed_reason += "Ranging / No clear structure. "
             
         return {
             "signal": "NO TRADE",
