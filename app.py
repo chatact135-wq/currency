@@ -4,7 +4,10 @@ from typing import Dict, List
 import os
 import traceback
 import sqlite3
-from datetime import datetime, timezone
+import time
+import threading
+import asyncio
+from datetime import datetime, timezone, timedelta
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -47,6 +50,39 @@ def init_db():
 init_db()
 
 _LAST_SIGNALS: Dict[str, dict] = {}
+
+def is_active_hours() -> bool:
+    """Return True if current local time (UTC+4) is between 7:00 AM and 12:00 AM"""
+    try:
+        local_time = datetime.now(timezone.utc) + timedelta(hours=4)
+        hour = local_time.hour
+        return 7 <= hour < 24   # 7:00 AM to 11:59 PM
+    except:
+        return True  # Default to active if error
+
+def background_analyzer():
+    """Background task that runs continuously and logs to journal"""
+    print("Background analyzer started...")
+    while True:
+        try:
+            if is_active_hours():
+                # Run analysis in background
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                results = loop.run_until_complete(analyze_all())
+                loop.close()
+                print(f"Background analysis done at {datetime.now()}")
+            else:
+                # Quiet hours (12am - 7am) - sleep longer to save API calls
+                time.sleep(300)  # Sleep 5 minutes during quiet hours
+                continue
+        except Exception as e:
+            print(f"Background analyzer error: {e}")
+        
+        time.sleep(45)  # Run every ~45 seconds during active hours
+
+# Start background thread
+threading.Thread(target=background_analyzer, daemon=True).start()
 
 async def analyze_all() -> dict:
     results = {}
