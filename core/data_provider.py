@@ -44,3 +44,20 @@ def fetch_finnhub_candles(symbol: str, interval: str = "15", outputsize: int = 1
 
 def fetch_twelvedata_candles(symbol: str, interval: str = "15min", outputsize: int = 100):
     return fetch_finnhub_candles(symbol, interval, outputsize)
+def fallback_demo_data(symbol: str, interval: str = "15min"):
+    """Fallback demo data if API fails"""
+    print(f"Using fallback demo data for {symbol}")
+    import pandas as pd
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    dates = [now - timedelta(minutes=i*15) for i in range(100)]
+    prices = [1.15 + (i * 0.0001) for i in range(100)]
+    df = pd.DataFrame({
+        "datetime": dates,
+        "open": prices,
+        "high": [p + 0.0005 for p in prices],
+        "low": [p - 0.0005 for p in prices],
+        "close": prices,
+    })
+    df.set_index("datetime", inplace=True)
+    return df
