@@ -20,7 +20,7 @@ def fetch_finnhub_candles(symbol: str, interval: str = "15", outputsize: int = 1
 
     url = "https://finnhub.io/api/v1/forex/candle"
     params = {
-        "symbol": f"OANDA:{symbol.replace('/', '_')}",
+        "symbol": symbol.replace('/', ''),
         "resolution": resolution,
         "from": from_time,
         "to": to_time,
