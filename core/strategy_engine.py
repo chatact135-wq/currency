@@ -97,22 +97,11 @@ def analyze_symbol(symbol: str, df: pd.DataFrame) -> Dict[str, Any]:
         take_profit = round(current_price - (atr * 2.0), 5)
         confidence = min(100 - score + 3, 93)
     else:
-        detailed_reason = "Low confluence score (" + str(score) + "/100). "
-        if structure == "ranging":
-            detailed_reason += "Ranging market structure detected. "
-        elif "trend" not in " ".join(reasons).lower():
-            detailed_reason += "No clear higher timeframe trend alignment. "
-        if rsi < 35 or rsi > 70:
-            detailed_reason += f"RSI at {round(rsi,1)} (extreme). "
-        if atr <= df['atr_ma'].iloc[-1] * 0.85:
-            detailed_reason += "Low volatility period. "
-        
         return {
             "signal": "NO TRADE",
-            "reason": detailed_reason.strip(),
+            "reason": "Low confluence - Waiting for better setup",
             "confidence": score,
-            "price": current_price,
-            "reasons": reasons + ["Waiting for stronger alignment"]
+            "price": current_price
         }
 
     return {
