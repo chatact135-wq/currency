@@ -1,61 +1,63 @@
-import pandas as pd
-import httpx
+import requests
 import os
-from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+import pandas as pd
 
-TWELVEDATA_API_KEY = os.getenv("TWELVEDATA_API_KEY")
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
 
-async def fetch_twelvedata_candles(symbol: str, interval: str = "15min", outputsize: int = 200) -> pd.DataFrame:
-    if not TWELVEDATA_API_KEY:
-        raise Exception("TWELVEDATA_API_KEY not set")
-    
-    symbol_map = {
-        "EUR/USD": "EUR/USD",
-        "GBP/USD": "GBP/USD"
+def fetch_finnhub_candles(symbol: str, interval: str = "15", outputsize: int = 100):
+    if not FINNHUB_API_KEY:
+        print("Finnhub API key missing")
+        return None
+
+    resolution = {"1min": "1", "5min": "5", "15min": "15", "1h": "60", "4h": "240"}.get(interval, "15")
+
+    to_time = int(datetime.now().timestamp())
+    from_time = to_time - (outputsize * 15 * 60)
+
+    url = "https://finnhub.io/api/v1/forex/candle"
+    params = {
+        "symbol": f"OANDA:{symbol.replace('/', '_')}",
+        "resolution": resolution,
+        "from": from_time,
+        "to": to_time,
+        "token": FINNHUB_API_KEY
     }
-    
-    sym = symbol_map.get(symbol, symbol)
-    
-    url = (
-        f"https://api.twelvedata.com/time_series"
-        f"?symbol={sym}&interval={interval}&outputsize={outputsize}"
-        f"&apikey={TWELVEDATA_API_KEY}&format=JSON"
-    )
-    
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        response = await client.get(url)
-        data = response.json()
-        
-        if "values" not in data:
-            raise Exception(f"API Error: {data.get('message', 'Unknown error')}")
-        
-        df = pd.DataFrame(data["values"])
-        df = df.rename(columns={
-            "datetime": "time",
-            "open": "open",
-            "high": "high",
-            "low": "low",
-            "close": "close"
-        })
-        df["time"] = pd.to_datetime(df["time"])
-        df = df.sort_values("time").reset_index(drop=True)
-        
-        for col in ["open", "high", "low", "close"]:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-        
-        return df
 
-def fallback_demo_data(symbol: str) -> pd.DataFrame:
-    """Demo data when API fails"""
-    dates = pd.date_range(end=pd.Timestamp.now(), periods=200, freq="15min")
-    base = 1.08 if "EUR" in symbol else 1.27
-    prices = base + (pd.Series(range(200)).cumsum() % 30) * 0.0003
-    
-    return pd.DataFrame({
-        "time": dates,
+    try:
+        r = requests.get(url, params=params, timeout=10)
+        data = r.json()
+        if data.get("s") != "ok":
+            return None
+
+        df = pd.DataFrame({
+            "datetime": pd.to_datetime(data["t"], unit="s"),
+            "open": data["o"],
+            "high": data["h"],
+            "low": data["l"],
+            "close": data["c"],
+        })
+        df.set_index("datetime", inplace=True)
+        return df
+    except:
+        return None
+
+def fetch_twelvedata_candles(symbol: str, interval: str = "15min", outputsize: int = 100):
+    return fetch_finnhub_candles(symbol, interval, outputsize)
+
+def fallback_demo_data(symbol: str, interval: str = "15min"):
+    print(f"Using fallback demo data for {symbol}")
+    import pandas as pd
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    dates = [now - timedelta(minutes=i*15) for i in range(100)]
+    prices = [1.15 + (i * 0.0001) for i in range(100)]
+    df = pd.DataFrame({
+        "datetime": dates,
         "open": prices,
-        "high": prices + 0.0008,
-        "low": prices - 0.0008,
-        "close": prices + (pd.Series(range(200)).apply(lambda x: 0.0003 if x % 3 == 0 else -0.0002))
+        "high": [p + 0.0005 for p in prices],
+        "low": [p - 0.0005 for p in prices],
+        "close": prices,
     })
+    df.set_index("datetime", inplace=True)
+    return df
