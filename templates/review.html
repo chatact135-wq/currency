@@ -23,7 +23,7 @@
         <div class="header">
             <div>
                 <h1>{{ app_name }} - Signal Journal / Review</h1>
-                <p>Last 24 hours decisions (from 12:00 AM to 12:00 AM next day) with detailed reasons and strategies used</p>
+                <p>Last 50 decisions with detailed reasons</p>
             </div>
             <a href="/" style="color:#60a5fa;">← Back to Live Dashboard</a>
         </div>
@@ -31,7 +31,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Time (Local UTC+4)</th>
+                    <th>Time (UTC)</th>
                     <th>Pair</th>
                     <th>Signal</th>
                     <th>Price</th>
@@ -43,7 +43,7 @@
             <tbody>
                 {% for row in history %}
                 <tr>
-                    <td class="timestamp">{{ row['timestamp'] }}</td>
+                    <td class="timestamp">{{ row['timestamp'][:19] }}</td>
                     <td>{{ row['symbol'] }}</td>
                     <td class="{% if 'BUY' in row['signal_type'] %}buy{% elif 'SELL' in row['signal_type'] %}sell{% else %}no-trade{% endif %}">
                         <strong>{{ row['signal_type'] }}</strong>

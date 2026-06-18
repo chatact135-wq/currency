@@ -44,8 +44,8 @@ def fetch_finnhub_candles(symbol: str, interval: str = "15", outputsize: int = 1
 
 def fetch_twelvedata_candles(symbol: str, interval: str = "15min", outputsize: int = 100):
     return fetch_finnhub_candles(symbol, interval, outputsize)
+
 def fallback_demo_data(symbol: str, interval: str = "15min"):
-    """Fallback demo data if API fails"""
     print(f"Using fallback demo data for {symbol}")
     import pandas as pd
     from datetime import datetime, timedelta
