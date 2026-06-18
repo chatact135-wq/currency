@@ -101,6 +101,38 @@ def is_high_probability_session() -> bool:
     except:
         return True
 
+def is_high_impact_news_time() -> bool:
+    """Avoid trading during typical high-impact US data releases (approx 15:30-16:30 Abu Dhabi time)"""
+    try:
+        local_time = datetime.now(timezone.utc) + timedelta(hours=4)
+        hour = local_time.hour
+        minute = local_time.minute
+        # Rough window for US data (FOMC, NFP, CPI, etc.)
+        if hour == 15 and minute >= 25:
+            return True
+        if hour == 16 and minute <= 35:
+            return True
+        return False
+    except:
+        return False
+
+def detect_momentum_exhaustion(df: pd.DataFrame, direction: str) -> bool:
+    """Check if the move is already very extended (momentum exhaustion)"""
+    if len(df) < 15:
+        return False
+    
+    recent_move = abs(df['close'].iloc[-1] - df['close'].iloc[-12])
+    atr = calculate_atr(df, 14).iloc[-1]
+    
+    # If price moved more than 2.5 ATRs in last 12 candles in one direction → exhausted
+    if direction == "SELL" and df['close'].iloc[-1] < df['close'].iloc[-12]:
+        if recent_move > (atr * 3.0):
+            return True
+    elif direction == "BUY" and df['close'].iloc[-1] > df['close'].iloc[-12]:
+        if recent_move > (atr * 3.0):
+            return True
+    return False
+
 def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None, df_daily: pd.DataFrame = None) -> Dict[str, Any]:
     if len(df_m15) < 60:
         return {"signal": "NO TRADE", "reason": "Insufficient data", "confidence": 0}
@@ -109,6 +141,14 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
         return {
             "signal": "NO TRADE",
             "reason": "Outside high probability trading hours",
+            "confidence": 0,
+            "price": float(df_m15['close'].iloc[-1])
+        }
+
+    if is_high_impact_news_time():
+        return {
+            "signal": "NO TRADE",
+            "reason": "High impact news time - Avoiding trading",
             "confidence": 0,
             "price": float(df_m15['close'].iloc[-1])
         }
@@ -196,9 +236,18 @@ def analyze_symbol(symbol: str, df_m15: pd.DataFrame, df_h4: pd.DataFrame = None
         score += 18
         reasons.append("Strong bearish candle confirmation")
 
-    min_score = 80   # Made stricter to reduce duplicates and late signals
+    min_score = 75   # Balanced - easier to get signals while keeping decent quality
 
     if score >= min_score and (m15_bullish or m15_bearish):
+        
+        # Check for momentum exhaustion
+        if detect_momentum_exhaustion(df, "SELL" if m15_bearish else "BUY"):
+            return {
+                "signal": "NO TRADE",
+                "reason": "Momentum exhaustion - Move already extended",
+                "confidence": max(score, 0),
+                "price": current_price
+            }
         
         if m15_bullish:
             direction = "BUY"
