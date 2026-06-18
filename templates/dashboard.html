@@ -33,15 +33,10 @@
                 <h1>{{ app_name }} - Balanced Mode</h1>
                 <p style="color:#94a3b8; margin: 5px 0 0 0;">Higher Quality Signals • Moderate Frequency • Better Accuracy</p>
             </div>
-            <div>
-                <a href="/review" style="color:#60a5fa; margin-right: 15px;">📜 Signal Journal</a>
+            <div style="text-align: right;">
+                <div style="color:#22c55e; font-weight:600;">LIVE</div>
+                <div style="font-size:0.9rem; color:#64748b;">Auto-refresh every {{ refresh_seconds }}s</div>
             </div>
-        </div>
-
-        <!-- Demo Mode Warning Banner -->
-        <div id="demo-warning" style="display:none; background:#7f1d1d; color:white; padding:12px 20px; border-radius:8px; margin-bottom:20px; text-align:center; font-weight:600;">
-            ⚠️ DEMO MODE ACTIVE — Using fake prices (API key missing or invalid).<br>
-            Real market data is NOT showing. Please add your TWELVEDATA_API_KEY in Railway.
         </div>
 
         <div id="signals-container">
@@ -50,54 +45,6 @@
     </div>
 
     <script>
-        // Store signal start times + last signal type so timer resets on new signal
-        function getSignalStartTime(symbol, currentSignalType) {
-            const startKey = 'signal_start_' + symbol;
-            const typeKey = 'signal_last_type_' + symbol;
-            
-            let lastType = localStorage.getItem(typeKey);
-            let startTime = localStorage.getItem(startKey);
-            
-            // Reset timer if signal type changed (e.g. NO TRADE → BUY, or BUY → SELL)
-            if (!lastType || lastType !== currentSignalType) {
-                startTime = Date.now();
-                localStorage.setItem(startKey, startTime);
-                localStorage.setItem(typeKey, currentSignalType);
-            }
-            
-            if (!startTime) {
-                startTime = Date.now();
-                localStorage.setItem(startKey, startTime);
-                localStorage.setItem(typeKey, currentSignalType);
-            }
-            
-            return parseInt(startTime);
-        }
-
-        function updateLiveTimers() {
-            const cards = document.querySelectorAll('.signal-card');
-            cards.forEach(card => {
-                const timerEl = card.querySelector('.live-timer');
-                if (!timerEl) return;
-
-                const startTime = parseInt(timerEl.dataset.startTime);
-                if (!startTime) return;
-
-                const elapsed = Math.floor((Date.now() - startTime) / 1000);
-                const minutes = Math.floor(elapsed / 60);
-                const seconds = elapsed % 60;
-
-                let timeText = '';
-                if (minutes > 0) {
-                    timeText = `${minutes}m ${seconds}s ago`;
-                } else {
-                    timeText = `${seconds}s ago`;
-                }
-
-                timerEl.textContent = `Signal started ${timeText}`;
-            });
-        }
-
         async function fetchSignals() {
             try {
                 const res = await fetch('/api/signals');
@@ -105,100 +52,51 @@
                 
                 let html = '';
                 
-                const isDemoMode = Object.values(data.signals).some(s => s.source && s.source.includes('DEMO'));
-                if (isDemoMode) {
-                    document.getElementById('demo-warning').style.display = 'block';
-                }
-
                 for (const [symbol, signal] of Object.entries(data.signals)) {
-                    const isDemo = signal.source && signal.source.includes('DEMO');
-                    const sourceText = isDemo 
-                        ? `<span style="color:#f87171; font-size:0.85rem;">(No Live Data)</span>` 
-                        : '';
+                    let cardClass = 'no-trade';
+                    if (signal.signal && signal.signal.includes('BUY')) cardClass = 'buy';
+                    if (signal.signal && signal.signal.includes('SELL')) cardClass = 'sell';
                     
-                    let cardHTML = '';
-
-                    if (isDemo || signal.signal === "NO LIVE DATA") {
-                        cardHTML = `
-                            <div class="signal-card no-trade">
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <h2 style="margin:0;">${symbol} ${sourceText}</h2>
-                                </div>
-                                <div style="margin: 20px 0; text-align: center;">
-                                    <div style="font-size:1.6rem; font-weight:700; color:#f87171;">NO LIVE DATA</div>
-                                    <div style="margin-top:8px; color:#94a3b8;">TwelveData API key missing or invalid.<br>Real prices not available.</div>
+                    html += `
+                        <div class="signal-card ${cardClass}">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <h2 style="margin:0;">${symbol}</h2>
+                                <div style="font-size:1.8rem; font-weight:700; color: ${signal.direction === 'BUY' ? '#22c55e' : signal.direction === 'SELL' ? '#ef4444' : '#64748b'}">
+                                    ${signal.signal || 'NO TRADE'}
                                 </div>
                             </div>
-                        `;
-                    } else {
-                        // Get or set start time for live timer (reset if signal type changed)
-                        const currentSignalType = signal.signal || 'NO TRADE';
-                        const startTime = getSignalStartTime(symbol, currentSignalType);
-                        
-                        cardHTML = `
-                            <div class="signal-card ${signal.signal && signal.signal.includes('BUY') ? 'buy' : signal.signal && signal.signal.includes('SELL') ? 'sell' : 'no-trade'}">
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <h2 style="margin:0;">${symbol} ${sourceText}</h2>
-                                    <div style="font-size:1.8rem; font-weight:700; color: ${signal.direction === 'BUY' ? '#22c55e' : signal.direction === 'SELL' ? '#ef4444' : '#64748b'}">
-                                        ${signal.signal || 'NO TRADE'}
-                                    </div>
+                            
+                            <div class="price">${signal.price ? signal.price.toFixed(5) : 'N/A'}</div>
+                            
+                            ${signal.direction ? `
+                                <div class="level"><strong>Entry:</strong> ${signal.entry}</div>
+                                <div class="level"><strong>Stop Loss:</strong> ${signal.stop_loss}</div>
+                                <div class="level"><strong>Take Profit:</strong> ${signal.take_profit}</div>
+                                <div class="confidence" style="color:#eab308;">Confidence: ${signal.confidence}%</div>
+                            ` : ''}
+                            
+                            ${signal.reasons && signal.reasons.length > 0 ? `
+                                <div class="reasons">
+                                    ${signal.reasons.map(r => `<span class="reason">${r}</span>`).join('')}
                                 </div>
-                                
-                                <div class="price">${signal.price ? signal.price.toFixed(5) : 'N/A'}</div>
-                                
-                                ${signal.direction ? `
-                                    <div class="level"><strong>Entry:</strong> ${signal.entry}</div>
-                                    <div class="level"><strong>Stop Loss:</strong> ${signal.stop_loss}</div>
-                                    <div class="level"><strong>Take Profit:</strong> ${signal.take_profit}</div>
-                                    <div class="confidence" style="color:#eab308;">Confidence: ${signal.confidence}%</div>
-                                ` : ''}
-                                
-                                ${signal.reasons && signal.reasons.length > 0 ? `
-                                    <div class="reasons">
-                                        ${signal.reasons.map(r => `<span class="reason">${r}</span>`).join('')}
-                                    </div>
-                                ` : ''}
-                                
-                                ${signal.structure_broken ? `
-                                    <div style="background:#fee2e2; color:#991b1b; padding:8px; border-radius:6px; margin-top:10px; font-weight:600; text-align:center;">
-                                        ⚠️ STRUCTURE BROKEN - Consider closing the trade
-                                    </div>
-                                ` : ''}
-                                
-                                <div style="margin-top:12px; font-size:0.9rem; color:#60a5fa; font-weight:500;">
-                                    <span class="live-timer" data-start-time="${startTime}">Signal started calculating...</span>
-                                </div>
-                                
-                                <div style="margin-top:6px; font-size:0.8rem; color:#64748b;">
-                                    ${signal.expected_move_minutes ? `Expected move: ${signal.expected_move_minutes} minutes` : ''}
-                                </div>
+                            ` : ''}
+                            
+                            <div style="margin-top:15px; font-size:0.85rem; color:#64748b;">
+                                ${signal.expected_move_minutes ? `Expected move: ${signal.expected_move_minutes} minutes` : ''}
                             </div>
-                        `;
-                    }
-                    
-                    html += cardHTML;
+                        </div>
+                    `;
                 }
                 
                 document.getElementById('signals-container').innerHTML = html;
-                
-                // Start live timer updates
-                setTimeout(() => {
-                    updateLiveTimers();
-                }, 100);
-                
             } catch (e) {
-                document.getElementById('signals-container').innerHTML = '<p style="color:#ef4444;">Error loading signals.</p>';
+                document.getElementById('signals-container').innerHTML = '<p style="color:#ef4444;">Error loading signals. Check console.</p>';
                 console.error(e);
             }
         }
         
         fetchSignals();
-        
-        // Auto-refresh every 30 seconds
-        setInterval(fetchSignals, 30000);
-        
-        // Update live timers every second
-        setInterval(updateLiveTimers, 1000);
+        setInterval(fetchSignals, {{ refresh_seconds }} * 1000);
     </script>
 </body>
 </html>
