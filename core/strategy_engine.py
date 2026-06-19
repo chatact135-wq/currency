@@ -1,107 +1,130 @@
+from __future__ import annotations
 import pandas as pd
-from datetime import datetime, timedelta
 import numpy as np
+from typing import Dict, Any
 
-def calculate_atr(df: pd.DataFrame, period: int = 14) -> float:
-    if len(df) < period:
-        return 0.001
+def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     high = df['high']
     low = df['low']
     close = df['close']
-    tr = pd.concat([
-        high - low,
-        abs(high - close.shift()),
-        abs(low - close.shift())
-    ], axis=1).max(axis=1)
-    atr = tr.rolling(window=period).mean().iloc[-1]
-    return round(atr, 5)
+    tr1 = high - low
+    tr2 = abs(high - close.shift())
+    tr3 = abs(low - close.shift())
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    return tr.rolling(period).mean()
 
 def detect_market_structure(df: pd.DataFrame) -> str:
-    if len(df) < 10:
+    if len(df) < 20:
         return "neutral"
-    recent_high = df['high'].iloc[-5:].max()
-    recent_low = df['low'].iloc[-5:].min()
-    current_price = float(df['close'].iloc[-1])
     
-    if current_price > recent_high:
+    recent_high = df['high'].iloc[-6:].max()
+    recent_low = df['low'].iloc[-6:].min()
+    prev_high = df['high'].iloc[-15:-6].max()
+    prev_low = df['low'].iloc[-15:-6].min()
+    
+    if recent_high > prev_high and recent_low > prev_low:
         return "bullish"
-    elif current_price < recent_low:
+    elif recent_high < prev_high and recent_low < prev_low:
         return "bearish"
-    return "neutral"
+    return "ranging"
 
-def calculate_rsi(df: pd.DataFrame, period: int = 14) -> float:
-    if len(df) < period + 1:
-        return 50.0
-    delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    return round(float(rsi.iloc[-1]), 1)
+def analyze_symbol(symbol: str, df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    EdgeFlow Pro v2 - High Confluence Strategy Engine
+    Focused on EUR/USD and GBP/USD
+    """
+    if len(df) < 60:
+        return {"signal": "NO TRADE", "reason": "Insufficient data", "confidence": 0}
 
-def get_signal(df_m15: pd.DataFrame, df_h4: pd.DataFrame = None) -> dict:
-    if len(df_m15) < 20:
-        return {"signal": "NO TRADE", "confidence": 0, "reasons": ["Not enough data"]}
+    df = df.copy()
     
+    # Indicators
+    df['ema_50'] = df['close'].ewm(span=50).mean()
+    df['ema_200'] = df['close'].ewm(span=200).mean()
+    df['rsi'] = 100 - (100 / (1 + (df['close'].diff().clip(lower=0).rolling(14).mean() / 
+                                   df['close'].diff().clip(upper=0).abs().rolling(14).mean())))
+    df['atr'] = calculate_atr(df, 14)
+    df['atr_ma'] = df['atr'].rolling(50).mean()
+
+    current_price = float(df['close'].iloc[-1])
+    atr = float(df['atr'].iloc[-1])
+    structure = detect_market_structure(df)
+    
+    score = 0
     reasons = []
-    current_price = float(df_m15['close'].iloc[-1])
-    atr = calculate_atr(df_m15)
-    
-    # Market Structure
-    structure = detect_market_structure(df_m15)
+
+    # === Trend Alignment ===
+    if current_price > df['ema_50'].iloc[-1] > df['ema_200'].iloc[-1]:
+        score += 30
+        reasons.append("Strong bullish trend")
+    elif current_price < df['ema_50'].iloc[-1] < df['ema_200'].iloc[-1]:
+        score += 30
+        reasons.append("Strong bearish trend")
+
+    # === Market Structure ===
     if structure == "bullish":
-        reasons.append("Bullish market structure (M15)")
+        score += 25
+        reasons.append("Bullish market structure")
     elif structure == "bearish":
-        reasons.append("Bearish market structure (M15)")
-    
-    # RSI
-    rsi = calculate_rsi(df_m15)
-    if rsi < 35:
-        reasons.append("Oversold - possible reversal")
-    elif rsi > 65:
-        reasons.append("Overbought - possible reversal")
-    else:
+        score += 25
+        reasons.append("Bearish market structure")
+
+    # === RSI Filter ===
+    rsi = df['rsi'].iloc[-1]
+    if 45 < rsi < 65:
+        score += 15
         reasons.append("Healthy momentum (RSI)")
-    
-    # Volatility
-    if atr > 0.0008:
+    elif rsi < 35:
+        score += 10
+        reasons.append("Oversold - possible reversal")
+
+    # === Volatility Filter ===
+    if atr > df['atr_ma'].iloc[-1] * 0.85:
+        score += 15
         reasons.append("Sufficient volatility")
-    
-    # H4 Bias (if available)
-    h4_bias = "neutral"
-    if df_h4 is not None and len(df_h4) > 5:
-        h4_structure = detect_market_structure(df_h4)
-        if h4_structure == "bullish":
-            h4_bias = "bullish"
-            reasons.append("H4 bias bullish")
-        elif h4_structure == "bearish":
-            h4_bias = "bearish"
-            reasons.append("H4 bias bearish")
-    
-    # Final Direction Decision
-    direction = "NO TRADE"
-    confidence = 55
-    
-    if structure == "bullish" and rsi < 70:
+
+    # === Final Decision (Balanced High-Quality Mode) ===
+    if score >= 72:
         direction = "BUY"
-        confidence = 75
-    elif structure == "bearish" and rsi > 30:
+        entry = round(current_price, 5)
+        stop_loss = round(current_price - (atr * 1.2), 5)
+        take_profit = round(current_price + (atr * 2.0), 5)
+        confidence = min(score + 3, 93)
+    elif score <= 28:
         direction = "SELL"
-        confidence = 75
-    
-    # === Fix Contradictory Reasons Bug ===
-    if direction == "BUY":
-        reasons = [r for r in reasons if not any(word in r.lower() for word in ["bearish", "sell", "down"])]
-    elif direction == "SELL":
-        reasons = [r for r in reasons if not any(word in r.lower() for word in ["bullish", "buy", "up"])]
-    
-    if direction == "NO TRADE":
-        reasons = ["Waiting for stronger alignment"]
-    
+        entry = round(current_price, 5)
+        stop_loss = round(current_price + (atr * 1.2), 5)
+        take_profit = round(current_price - (atr * 2.0), 5)
+        confidence = min(100 - score + 3, 93)
+    else:
+        detailed_reason = "Low confluence score (" + str(score) + "/100). "
+        if structure == "ranging":
+            detailed_reason += "Ranging market structure detected. "
+        elif "trend" not in " ".join(reasons).lower():
+            detailed_reason += "No clear higher timeframe trend alignment. "
+        if rsi < 35 or rsi > 70:
+            detailed_reason += f"RSI at {round(rsi,1)} (extreme). "
+        if atr <= df['atr_ma'].iloc[-1] * 0.85:
+            detailed_reason += "Low volatility period. "
+        
+        return {
+            "signal": "NO TRADE",
+            "reason": detailed_reason.strip(),
+            "confidence": score,
+            "price": current_price,
+            "reasons": reasons + ["Waiting for stronger alignment"]
+        }
+
     return {
-        "signal": f"TRADE NOW {direction}" if direction != "NO TRADE" else "NO TRADE",
+        "signal": f"TRADE NOW {direction}",
+        "direction": direction,
+        "entry": entry,
+        "stop_loss": stop_loss,
+        "take_profit": take_profit,
         "confidence": confidence,
         "reasons": reasons,
-        "entry": round(current_price, 5),
-        "atr": atr
+        "atr": round(atr, 5),
+        "price": current_price,
+        "expected_move_minutes": "25-70",
+        "timeframe": "M15 + H4 Balanced Confluence"
     }
