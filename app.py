@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 
 from config import APP_NAME, SYMBOLS, REFRESH_SECONDS
 from core.data_provider import fetch_twelvedata_candles, fallback_demo_data
-from core.strategy_engine import analyze_symbol
+from core.strategy_engine import get_signal
 
 BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title=APP_NAME)
